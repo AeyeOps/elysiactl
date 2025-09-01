@@ -1,134 +1,245 @@
 # ElysiaCtl
 
-A command-line utility for managing Elysia AI and Weaviate services in development environments. Provides unified control and monitoring for multi-node Weaviate clusters and Elysia AI services.
+A command-line utility for managing Elysia AI and Weaviate services in development and production environments. Provides unified control, monitoring, and maintenance for multi-node Weaviate clusters and Elysia AI services.
 
-## Acknowledgments
+## Overview
 
-Special recognition to the **Weaviate** team for their innovative vector database technology that powers modern AI applications, and to the **Elysia AI** team for their groundbreaking work in artificial intelligence. We look forward to the production release of Elysia AI and its continued evolution.
+ElysiaCtl simplifies the orchestration of complex AI infrastructure by providing a single interface to manage both Weaviate vector database clusters and Elysia AI services. It handles service dependencies, monitors cluster health, and provides repair utilities for common configuration issues.
 
-## Features
+## Key Features
 
-- **Service Orchestration** - Start, stop, and restart services with proper dependency management
-- **Individual Node Monitoring** - Track each Weaviate node separately with accurate PIDs
-- **Health Diagnostics** - Comprehensive health checks with verbose mode for troubleshooting
-- **Docker Integration** - Automatic Docker container detection and PID resolution
-- **Detailed Logging** - Per-container log viewing with configurable output
-- **Cluster Awareness** - Replication status and node distribution monitoring
+### Service Management
+- Start, stop, and restart services with automatic dependency resolution
+- Individual monitoring of multi-node Weaviate clusters
+- Process tracking with PID management for reliable service control
+- Docker container integration for accurate process monitoring
 
-## Prerequisites
+### Cluster Operations
+- Real-time cluster health verification
+- Replication factor validation across nodes
+- RAFT consensus monitoring
+- Collection distribution analysis
 
-- UV package manager (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Docker and docker-compose
-- Conda with "elysia" environment
-- Python 3.12+
+### Maintenance Tools
+- Automated repair commands for replication issues
+- Safe collection recreation with data loss protection
+- Schema backup and recovery capabilities
+- Dry-run mode for risk-free operation preview
+
+## Requirements
+
+- Python 3.8 or higher
+- UV package manager ([Installation Guide](https://github.com/astral-sh/uv))
+- Docker and Docker Compose
+- Conda environment (for Elysia AI service)
 
 ## Installation
 
-### From Source
+### Using UV (Recommended)
+
 ```bash
-git clone https://github.com/AeyeOps/elysiactl.git
+git clone https://github.com/your-org/elysiactl.git
 cd elysiactl
 uv sync
+uv build
+uv pip install dist/elysiactl-*.whl
 ```
 
-### Local Development
+### Development Setup
+
 ```bash
-cd /opt/elysiactl
+git clone https://github.com/your-org/elysiactl.git
+cd elysiactl
 uv sync
+uv run elysiactl --version
 ```
 
-## Usage
+## Quick Start
 
 ```bash
-# Run directly with UV
-uv run elysiactl start
+# Check version
+elysiactl --version
 
-# Or activate environment
-source .venv/bin/activate
+# Start all services
 elysiactl start
 
-# Stop both services
-elysiactl stop
-
-# Restart both services
-elysiactl restart
-
-# Check service status
+# Check status
 elysiactl status
 
-# Health check (basic)
-elysiactl health
+# Verify cluster health
+elysiactl health --cluster
 
-# Detailed health diagnostics with verbose output
-elysiactl health --verbose
-elysiactl health -v  # Short form
-
-# Verbose with custom log count per container (default is 3)
-# Note: --last-errors specifies lines PER CONTAINER, not total
-# With 3 Weaviate nodes: 3 logs per container = 9 total logs displayed
-elysiactl health --verbose --last-errors 5  # Shows 15 total logs (5 × 3 nodes)
-elysiactl health -v --last-errors 2  # Shows 6 total logs (2 × 3 nodes)
+# Stop all services
+elysiactl stop
 ```
 
-### Health Check Verbose Mode
+## Command Reference
 
-The `--verbose` flag provides detailed diagnostics including:
-- Individual Weaviate node health (ports 8080, 8081, 8082)
-- ELYSIA_CONFIG__ collection replication status
-- Container/process statistics
-- Recent error logs from services
-- Connection metrics
+### Service Management
 
-This is particularly useful for diagnosing "save stuck" issues related to collection replication.
+```bash
+elysiactl start              # Start Weaviate and Elysia services
+elysiactl stop               # Stop all services gracefully
+elysiactl restart            # Restart all services
+elysiactl status             # Display current service status
+```
 
-## Service Management
+### Health Monitoring
 
-- **Weaviate**: Managed via docker-compose from `/opt/weaviate/`
-- **Elysia**: Run from `/opt/elysia/` using conda environment "elysia"
+```bash
+elysiactl health                          # Basic health check
+elysiactl health --verbose                # Detailed diagnostics
+elysiactl health --verbose --last-errors 5   # Show recent logs
+elysiactl health --cluster                # Verify cluster replication
+elysiactl health --cluster --json         # JSON output for automation
+```
 
+### Maintenance Operations
+
+```bash
+elysiactl repair --help                      # View repair commands
+elysiactl repair config-replication          # Fix replication issues
+elysiactl repair config-replication --dry-run   # Preview changes
+elysiactl repair config-replication --force     # Skip confirmations
+```
+
+## Detailed Documentation
+
+### Cluster Verification
+
+ElysiaCtl provides comprehensive cluster verification to ensure proper replication across Weaviate nodes:
+
+- **Replication Factor Validation**: Verifies collections are replicated according to configuration
+- **Node Distribution**: Ensures shards are properly distributed across all nodes
+- **RAFT Consensus**: Monitors cluster consensus for metadata synchronization
+- **Collection Health**: Validates system collections (ELYSIA_CONFIG__, ELYSIA_FEEDBACK__, ELYSIA_METADATA__)
+
+### Repair Operations
+
+The repair system is designed to fix common cluster configuration issues while protecting data:
+
+#### When to Use Repair
+
+- Cluster health check reports replication issues
+- Collections show incorrect replication factor
+- After modifying RAFT consensus configuration
+- When adding or removing cluster nodes
+
+#### Safety Mechanisms
+
+1. **Data Protection**: Operations refused if collections contain data
+2. **Automatic Backups**: Schema exported before any modifications
+3. **Confirmation Required**: Explicit user approval for destructive operations
+4. **Dry Run Support**: Preview all changes before execution
+
+### Verbose Diagnostics
+
+The verbose mode (`--verbose` or `-v`) provides detailed system insights:
+
+- Individual node health status with connection metrics
+- Docker container statistics and resource usage
+- Recent error logs from each service (configurable with `--last-errors`)
+- Collection replication details and shard distribution
+- Process information including PIDs and ports
 
 ## Architecture
 
-### Service Management
-ElysiaCtl provides unified control over:
-- **Weaviate Cluster**: Three-node configuration (ports 8080, 8081, 8082) managed through Docker Compose
-- **Elysia AI Service**: FastAPI application running in conda environment with process monitoring
+### System Components
 
-### Technical Details
-- Process tracking via PID file (`/tmp/elysia.pid`)
-- Docker container integration for accurate process monitoring
-- Automatic dependency resolution during service startup
-- Graceful shutdown sequences with proper cleanup
+ElysiaCtl manages a complex AI infrastructure consisting of:
 
-### Health Monitoring
-The tool monitors multiple health endpoints:
-- Weaviate nodes: `http://localhost:{8080,8081,8082}/v1/nodes`
-- Elysia service: `http://localhost:8000/docs`
-- Collection replication status across cluster nodes
+#### Weaviate Cluster
+- Three-node distributed configuration
+- Docker Compose orchestration
+- RAFT consensus for metadata synchronization
+- Ports: 8080 (node1), 8081 (node2), 8082 (node3)
+- Persistent volume storage per node
+
+#### Elysia AI Service
+- FastAPI-based application
+- Conda environment isolation
+- Process lifecycle management via PID tracking
+- Port: 8000 (default)
+
+### Technical Implementation
+
+- **Process Control**: PID-based tracking with automatic cleanup
+- **Container Management**: Docker API integration for monitoring
+- **Health Monitoring**: Asynchronous HTTP health checks
+- **Configuration Management**: Environment-based configuration
+- **Error Handling**: Comprehensive error recovery and reporting
 
 ## Development
 
-### Project Structure
-```
-elysiactl/
-├── pyproject.toml          # UV package configuration
-├── README.md               # This file
-├── ROADMAP.md             # Future development plans
-├── src/elysiactl/         # Source code
-│   ├── cli.py            # Main CLI entry point
-│   ├── commands/         # Command implementations
-│   ├── services/         # Service management logic
-│   └── utils/            # Utility functions
-└── tests/                # Test suite
+### Building and Testing
+
+```bash
+# Setup development environment
+uv sync
+
+# Run the tool in development
+uv run elysiactl --version
+
+# Build distribution package
+uv build
+
+# Run tests (when available)
+uv run pytest tests/
 ```
 
-### Contributing
-This project uses UV for dependency management. All contributions should maintain the established code structure and follow existing patterns.
+### Code Structure
+
+```
+elysiactl/
+├── pyproject.toml       # Package configuration (version, dependencies)
+├── README.md            # User documentation
+├── CHANGELOG.md         # Version history
+├── ROADMAP.md           # Future development plans
+├── src/
+│   └── elysiactl/
+│       ├── __init__.py  # Package initialization, version management
+│       ├── cli.py       # CLI entry point and command routing
+│       ├── commands/    # Command implementations
+│       │   ├── health.py
+│       │   ├── repair.py
+│       │   ├── start.py
+│       │   ├── status.py
+│       │   └── stop.py
+│       ├── services/    # Service management logic
+│       │   ├── cluster_verification.py
+│       │   ├── elysia.py
+│       │   └── weaviate.py
+│       └── utils/       # Utility functions
+│           ├── display.py
+│           └── process.py
+└── docs/                # Additional documentation
+```
+
+## Version History
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+## Contributing
+
+Contributions are welcome. Please ensure:
+- Code follows existing patterns and conventions
+- Changes include appropriate error handling
+- Documentation is updated for new features
+- Tests are added for new functionality
 
 ## License
 
-Copyright 2025 AeyeOps
+Copyright 2025 - Licensed under appropriate terms (to be specified)
 
 ## Support
 
-For issues, feature requests, or questions, please visit the [GitHub repository](https://github.com/AeyeOps/elysiactl).
+- **Issues**: [GitHub Issues](https://github.com/your-org/elysiactl/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/your-org/elysiactl/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/elysiactl/discussions)
+
+## Acknowledgments
+
+- Weaviate team for the vector database platform
+- Elysia AI team for the AI service framework
+- UV team for modern Python package management
+- Open source community for the excellent tooling ecosystem

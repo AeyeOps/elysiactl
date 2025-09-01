@@ -15,7 +15,6 @@ def health_command(
     cluster: bool = False,
     collection: Optional[str] = None,
     quick: bool = False,
-    fix: bool = False,
     json_output: bool = False
 ) -> None:
     """Perform health checks on both services."""
@@ -31,7 +30,7 @@ def health_command(
     if cluster:
         # Perform cluster verification
         asyncio.run(_perform_cluster_verification(
-            weaviate, collection, quick, fix, json_output
+            weaviate, collection, quick, json_output
         ))
         return
     
@@ -70,7 +69,6 @@ async def _perform_cluster_verification(
     weaviate_service: WeaviateService,
     collection: Optional[str],
     quick: bool,
-    fix: bool,
     json_output: bool
 ) -> None:
     """Perform cluster verification checks."""
@@ -138,7 +136,6 @@ async def _perform_cluster_verification(
                 }
                 for warning in result.warnings
             ],
-            "replication_lag": result.replication_lag,
             "error": result.error
         }
         
@@ -186,9 +183,13 @@ async def _perform_cluster_verification(
                 status_style = "green" if status.consistent else "red"
                 
                 replication_text = f"factor={status.replication_factor}"
-                if status.replication_factor == result.node_count:
+                nodes_with_data = len([n for n in status.node_distribution.values() if n > 0])
+                if status.replication_factor == result.node_count and nodes_with_data == result.node_count:
                     replication_text += " ✓"
                     repl_style = "green"
+                elif status.replication_factor == result.node_count:
+                    replication_text += " ⚠"  # Factor is correct but not distributed
+                    repl_style = "yellow"
                 else:
                     replication_text += " ✗"
                     repl_style = "red"
@@ -234,34 +235,6 @@ async def _perform_cluster_verification(
         derived_panel = Panel(derived_table, title="Derived Collections", border_style="blue")
         console.print(derived_panel)
     
-    # Replication lag section
-    if result.replication_lag:
-        lag_table = Table(show_header=True, header_style="bold blue")
-        lag_table.add_column("Node", justify="center")
-        lag_table.add_column("Lag", justify="center")
-        lag_table.add_column("Status", justify="center")
-        
-        for port, lag in result.replication_lag.items():
-            lag_text = f"{lag:.3f}s"
-            if lag < 0.5:
-                lag_icon = "✓"
-                lag_style = "green"
-            elif lag < 1.0:
-                lag_icon = "⚠"
-                lag_style = "yellow"
-            else:
-                lag_icon = "✗"
-                lag_style = "red"
-            
-            lag_table.add_row(
-                f":{port}",
-                lag_text,
-                Text(lag_icon, style=lag_style)
-            )
-        
-        lag_panel = Panel(lag_table, title="Replication Lag", border_style="blue")
-        console.print(lag_panel)
-    
     # Issues summary
     critical_issues = [i for i in result.issues if i.severity == "critical"]
     high_issues = [i for i in result.issues if i.severity == "high"]
@@ -287,8 +260,6 @@ async def _perform_cluster_verification(
         )
         console.print(summary_panel)
         
-        if not fix and any(i.fixable for i in result.issues):
-            console.print("\n[bold yellow]Run with --fix to attempt repairs[/bold yellow]")
     else:
         success_panel = Panel(
             "[bold green]✓ All cluster verification checks passed[/bold green]",
@@ -296,13 +267,21 @@ async def _perform_cluster_verification(
         )
         console.print(success_panel)
     
-    # Handle repair functionality
-    if fix:
-        fixable_issues = [i for i in result.issues if i.fixable]
-        if fixable_issues:
-            console.print(f"\n[yellow]Attempting to repair {len(fixable_issues)} fixable issues...[/yellow]")
-            
-            # This would require user confirmation in a real implementation
-            repair_result = await verifier.attempt_repair(fixable_issues)
-            
-            console.print(f"Repair summary: {repair_result}")
+    # Provide repair guidance if issues found
+    if result.issues and not json_output:
+        guidance_panel = Panel(
+            "[bold]Repair Options:[/bold]\n\n"
+            "• [cyan]For replication issues:[/cyan]\n"
+            "  Run: [green]elysiactl repair config-replication <collection>[/green]\n"
+            "  Or use Weaviate's replica movement API (v1.32+)\n\n"
+            "• [cyan]For missing collections:[/cyan]\n"
+            "  Create with proper replication factor=3\n"
+            "  Include asyncEnabled=true for better performance\n\n"
+            "• [cyan]To check cluster state:[/cyan]\n"
+            "  [dim]curl http://localhost:8080/v1/cluster/shards/<collection>[/dim]\n\n"
+            "• [cyan]For data recovery:[/cyan]\n"
+            "  Look for backup files: [dim]*_backup.json, *_data_export_*.json[/dim]",
+            title="Repair Guidance",
+            border_style="yellow"
+        )
+        console.print(guidance_panel)

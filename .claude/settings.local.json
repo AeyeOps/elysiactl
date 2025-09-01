@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/opt/weaviate/**)",
+      "mcp__context7__get-library-docs"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

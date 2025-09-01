@@ -5,68 +5,70 @@ All notable changes to ElysiaCtl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-- Elysia health check now uses correct `/api/health` endpoint instead of `/docs`
-- Weaviate multi-node cluster detection now checks all nodes (8080, 8081, 8082)
-- Docker container process detection enhanced with fallback to `ss` command
-- Service status correctly shows "Running" for multi-node Weaviate clusters
-
-### Known Issues
-- PID file (`/tmp/elysia.pid`) persists after Elysia crashes
-- No detection of zombie Elysia processes
-- ELYSIA_CONFIG__ collection not replicated to Weaviate nodes 8081/8082
-- No configurable timeout for slow Weaviate startup (hardcoded 60s)
-- Cannot detect partial docker-compose failures
-
-## [0.2.0] - 2025-08-31
+## [0.1.1] - 2025-09-01
 
 ### Added
-- Verbose health diagnostics with `--verbose` flag
-  - Individual Weaviate node health checks (ports 8080, 8081, 8082)
-  - ELYSIA_CONFIG__ collection replication status monitoring
-  - Container/process statistics (CPU, memory, status)
-  - Active connection counting
-- `--last-errors` option for viewing recent logs (per-container count)
-- Three-panel layout for verbose health output:
-  - Elysia AI Health (top)
-  - Weaviate Cluster Health (middle)
-  - Weaviate Node Logs (bottom)
-- JSON log parsing with color-coded severity levels
-- Comprehensive CLAUDE.md with project discipline rules
-- Communication policy focusing on failures (90/10 rule)
+- Comprehensive collection management specification documentation
+- Phase 1-3 implementation plans for collection operations
+- Prioritization matrix for 6-day development sprints
+- Integration documentation with existing catalog system
 
 ### Changed
-- Health command now shows complete logs without truncation
-- Log count is per-container, not total (3 logs × 3 nodes = 9 total)
-- Improved error visibility with unfiltered log display
-- README documentation clarified for per-container behavior
+- Fixed Elysia service startup to use proper Python module path
+- Updated documentation to clarify Elysia's read-only nature for Weaviate collections
 
-### Removed
-- install.sh script (redundant with UV's built-in `uv sync`)
-- Presumptuous error filtering in log display
-- Log truncation at 120 characters
+### Documentation
+- Added collection management overview and architecture design
+- Created detailed implementation specifications for core CRUD operations
+- Documented backup/restore strategies with checkpoint recovery
+- Added advanced features roadmap including real-time monitoring and cross-cluster migration
 
-### Fixed
-- UV PATH conflicts between conda and system installations
-- UV not found in PATH after conda activation
-
-## [0.1.0] - 2025-08-30
+## [0.1.0] - 2025-09-01
 
 ### Added
 - Initial release of ElysiaCtl
-- Core commands: start, stop, restart, status, health
-- Service management for Weaviate (docker-compose) and Elysia AI (FastAPI)
-- Rich terminal output with colored status indicators
-- PID-based process tracking for Elysia
-- Docker-compose integration for Weaviate cluster
-- Basic health endpoint checking
-- UV package manager integration
-- Typer CLI framework with type hints
+- Service orchestration for Weaviate and Elysia AI services
+- Multi-node Weaviate cluster support (3 nodes)
+- Individual node health monitoring with Docker integration
+- Comprehensive cluster verification with replication status
+- Repair command for fixing collection replication issues
+- Detailed health diagnostics with verbose mode
+- JSON output support for programmatic access
+- Dry-run mode for repair operations
+- Version management with --version flag
 
-### Dependencies
-- typer for CLI framework
-- rich for terminal formatting
-- httpx for health checks
-- psutil for process management
+### Features
+- `start` - Start both Weaviate and Elysia services with dependency management
+- `stop` - Gracefully stop both services
+- `restart` - Stop and start services in correct order
+- `status` - Show current status of all services and nodes
+- `health` - Perform health checks with optional verbose diagnostics
+- `health --cluster` - Verify cluster replication and node distribution
+- `repair config-replication` - Fix ELYSIA_CONFIG__ replication issues
+
+### Technical Details
+- Built with UV package manager for dependency management
+- Uses Typer for CLI framework with Rich for terminal output
+- Process tracking via PID files for service management
+- Docker container integration for accurate process monitoring
+- RAFT consensus verification for Weaviate cluster health
+- Automatic schema backup before repair operations
+
+### Safety Features
+- Data loss protection in repair operations
+- Confirmation prompts for destructive operations
+- Dry-run mode for previewing changes
+- Automatic backup creation before modifications
+
+### Known Issues
+- Elysia AI service management requires manual conda environment setup
+- Test record writing for lag detection may fail on read-only collections
+
+## [Unreleased]
+
+### Planned
+- Enhanced service diagnostics commands
+- Performance monitoring capabilities
+- Backup and restore functionality
+- Migration tools for version upgrades
+- Extended repair commands for other collections

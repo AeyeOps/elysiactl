@@ -1,5 +1,76 @@
 # ElysiaCtl Roadmap
 
+## Cluster Repair Guide
+
+When `elysiactl health --cluster` detects replication issues, manual intervention is required. The `--fix` flag was intentionally removed to avoid "magic" fixes that could cause data loss or unexpected behavior.
+
+### Understanding ELYSIA_CONFIG__
+
+- **Purpose**: Key-value configuration store for Elysia
+- **Schema**: Simple with `config_key` and `config_value` text fields  
+- **Expected State**: Replication factor=3, distributed across all nodes
+
+### Fixing Replication Issues Without Data Loss
+
+#### Method 1: Replica Movement API (Weaviate v1.32+) - RECOMMENDED
+
+Use Weaviate's shard-level replica movement to copy existing data to other nodes:
+
+```bash
+# 1. Check current shard state
+curl http://localhost:8080/v1/cluster/shards/ELYSIA_CONFIG__
+
+# 2. Use replica COPY operations (non-destructive)
+# This increments replication factor per shard while preserving data
+# Refer to Weaviate docs for exact API endpoints
+```
+
+#### Method 2: Export/Recreate (Only for Empty Collections)
+
+Since ELYSIA_CONFIG__ is currently empty, this is safe:
+
+```bash
+# 1. Export schema
+curl http://localhost:8080/v1/schema/ELYSIA_CONFIG__ > config_schema.json
+
+# 2. Delete collection  
+curl -X DELETE http://localhost:8080/v1/schema/ELYSIA_CONFIG__
+
+# 3. Edit config_schema.json to ensure:
+#    "replicationConfig": {"factor": 3}
+
+# 4. Recreate with proper replication
+curl -X POST http://localhost:8080/v1/schema \
+  -H "Content-Type: application/json" \
+  -d @config_schema.json
+```
+
+### Creating Missing System Collections
+
+For ELYSIA_FEEDBACK__ and ELYSIA_METADATA__ (should be created by Elysia app):
+
+```bash
+# Example structure - adjust properties based on Elysia requirements
+curl -X POST http://localhost:8080/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "ELYSIA_FEEDBACK__",
+    "properties": [
+      {"name": "feedback_id", "dataType": ["text"]},
+      {"name": "content", "dataType": ["text"]},
+      {"name": "timestamp", "dataType": ["date"]}
+    ],
+    "replicationConfig": {"factor": 3}
+  }'
+```
+
+### Why No Automatic Fix?
+
+1. **Data Safety**: Automated fixes could cause data loss
+2. **Context Matters**: Each situation needs different approaches
+3. **Complexity**: Too many edge cases to handle automatically
+4. **User Control**: Admins should understand and approve changes
+
 ## Current Features (v0.2.0)
 - Basic service orchestration (start/stop/restart)
 - Simple status reporting

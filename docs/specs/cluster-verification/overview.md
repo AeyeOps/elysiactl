@@ -11,7 +11,6 @@ elysiactl health --cluster [OPTIONS]
 ### Options
 - `--collection NAME` - Verify specific collection only
 - `--quick` - Skip data consistency checks (faster)
-- `--fix` - Attempt to repair detected issues (requires confirmation)
 - `--json` - Output in JSON format for scripting
 
 ## Implementation Architecture
@@ -26,7 +25,6 @@ class ClusterVerifier:
     def __init__(self, weaviate_service: WeaviateService)
     async def verify_cluster(self) -> ClusterVerificationResult
     async def verify_collection(self, name: str) -> CollectionVerificationResult
-    async def attempt_repair(self, issues: List[Issue]) -> RepairResult
 
 # src/elysiactl/models/verification.py
 @dataclass
@@ -216,7 +214,11 @@ Replication Status:
   ⚠ Peak lag: 1.2s to node 8082
 
 ISSUES FOUND: 2 critical, 1 warning
-Run 'elysiactl health --cluster --fix' to attempt repairs
+
+Recommended Actions:
+- ELYSIA_METADATA__: Recreate with replication factor 3
+- CHUNKED_emails: Update replication to match parent collection
+- Node 8082: Check network connectivity for replication lag
 ```
 
 ### JSON Output (--json flag)
@@ -249,7 +251,8 @@ Run 'elysiactl health --cluster --fix' to attempt repairs
         "replication_factor": 1,
         "node_distribution": {"8080": 1, "8081": 0, "8082": 0},
         "consistent": false,
-        "issues": ["Not replicated to all nodes"]
+        "issues": ["Not replicated to all nodes"],
+        "remediation": "Recreate collection with replication factor 3"
       }
     },
     "derived": {
@@ -264,7 +267,7 @@ Run 'elysiactl health --cluster --fix' to attempt repairs
       "severity": "critical",
       "message": "ELYSIA_METADATA__ not replicated",
       "collection": "ELYSIA_METADATA__",
-      "fixable": true
+      "remediation": "Recreate collection with replication factor 3"
     }
   ],
   "warnings": [
@@ -274,35 +277,6 @@ Run 'elysiactl health --cluster --fix' to attempt repairs
   ]
 }
 ```
-
-## Repair Functionality (--fix flag)
-
-### Automated Repairs
-```python
-async def attempt_repair(self, issues: List[Issue]) -> RepairResult:
-    """Attempt to fix detected issues."""
-    repairs = []
-    
-    for issue in issues:
-        if issue.fixable:
-            if issue.type == "missing_replication":
-                # Recreate collection with proper replication
-                success = await self.recreate_with_replication(issue.collection)
-                repairs.append(RepairAttempt(issue, success))
-            
-            elif issue.type == "missing_data":
-                # Trigger re-sync from primary node
-                success = await self.resync_data(issue.collection, issue.node)
-                repairs.append(RepairAttempt(issue, success))
-    
-    return RepairResult(repairs)
-```
-
-### Safety Measures
-1. Always create backup before destructive operations
-2. Require explicit confirmation for repairs
-3. Dry-run mode to preview changes
-4. Rollback capability if repairs fail
 
 ## Error Handling
 
@@ -375,7 +349,7 @@ def test_replication_factor_detection():
 ### Production Ready
 - All verification checks implemented
 - JSON output for automation
-- Repair functionality tested
+- Clear remediation guidance provided
 - Performance within targets
 - Comprehensive error handling
 
@@ -398,7 +372,7 @@ def test_replication_factor_detection():
 
 ### Week 4: Polish & Testing
 - JSON output format
-- Repair functionality
+- Remediation guidance system
 - Integration testing
 - Documentation
 
@@ -427,3 +401,4 @@ def test_replication_factor_detection():
 - Historical tracking of cluster health
 - Integration with monitoring systems
 - Custom verification rules
+- Guided repair workflows (separate from verification)

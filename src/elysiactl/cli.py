@@ -3,17 +3,41 @@
 import typer
 from typing import Optional
 from typing_extensions import Annotated
+from rich.console import Console
 
+from . import __version__
 from .commands.start import start_command
 from .commands.stop import stop_command
 from .commands.status import status_command
 from .commands.health import health_command
+from .commands.repair import app as repair_app
+
+console = Console()
+
+def version_callback(value: bool):
+    """Handle --version flag."""
+    if value:
+        console.print(f"elysiactl version {__version__}")
+        raise typer.Exit()
 
 app = typer.Typer(
     name="elysiactl",
     help="Control utility for managing Elysia AI and Weaviate services",
     no_args_is_help=True,
 )
+
+@app.callback()
+def main(
+    version: Annotated[
+        Optional[bool], 
+        typer.Option("--version", "-V", callback=version_callback, is_eager=True,
+                    help="Show version and exit")
+    ] = None,
+):
+    """ElysiaCtl - Service management for Elysia AI and Weaviate."""
+    pass
+
+app.add_typer(repair_app, name="repair", help="Repair cluster issues")
 
 
 @app.command()
@@ -48,7 +72,6 @@ def health(
     cluster: Annotated[bool, typer.Option("--cluster", help="Perform cluster verification checks")] = False,
     collection: Annotated[Optional[str], typer.Option("--collection", help="Verify specific collection only")] = None,
     quick: Annotated[bool, typer.Option("--quick", help="Skip data consistency checks (faster)")] = False,
-    fix: Annotated[bool, typer.Option("--fix", help="Attempt to repair detected issues (requires confirmation)")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format for scripting")] = False
 ):
     """Perform health checks on both services."""
@@ -58,7 +81,6 @@ def health(
         cluster=cluster,
         collection=collection,
         quick=quick,
-        fix=fix,
         json_output=json_output
     )
 
