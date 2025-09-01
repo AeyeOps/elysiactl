@@ -44,10 +44,23 @@ def status():
 @app.command()
 def health(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show detailed diagnostics")] = False,
-    last_errors: Annotated[Optional[int], typer.Option("--last-errors", help="Log lines per container to show (e.g., 3 lines × 3 nodes = 9 total logs, requires --verbose)")] = None
+    last_errors: Annotated[Optional[int], typer.Option("--last-errors", help="Log lines per container to show (e.g., 3 lines × 3 nodes = 9 total logs, requires --verbose)")] = None,
+    cluster: Annotated[bool, typer.Option("--cluster", help="Perform cluster verification checks")] = False,
+    collection: Annotated[Optional[str], typer.Option("--collection", help="Verify specific collection only")] = None,
+    quick: Annotated[bool, typer.Option("--quick", help="Skip data consistency checks (faster)")] = False,
+    fix: Annotated[bool, typer.Option("--fix", help="Attempt to repair detected issues (requires confirmation)")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format for scripting")] = False
 ):
     """Perform health checks on both services."""
-    health_command(verbose=verbose, last_errors=last_errors)
+    health_command(
+        verbose=verbose, 
+        last_errors=last_errors,
+        cluster=cluster,
+        collection=collection,
+        quick=quick,
+        fix=fix,
+        json_output=json_output
+    )
 
 
 if __name__ == "__main__":

@@ -2,6 +2,10 @@
 
 A command-line utility for managing Elysia AI and Weaviate services in development environments. Provides unified control and monitoring for multi-node Weaviate clusters and Elysia AI services.
 
+## Acknowledgments
+
+Special recognition to the **Weaviate** team for their innovative vector database technology that powers modern AI applications, and to the **Elysia AI** team for their groundbreaking work in artificial intelligence. We look forward to the production release of Elysia AI and its continued evolution.
+
 ## Features
 
 - **Service Orchestration** - Start, stop, and restart services with proper dependency management
@@ -22,7 +26,7 @@ A command-line utility for managing Elysia AI and Weaviate services in developme
 
 ### From Source
 ```bash
-git clone https://github.com/yourusername/elysiactl.git
+git clone https://github.com/AeyeOps/elysiactl.git
 cd elysiactl
 uv sync
 ```
@@ -83,10 +87,48 @@ This is particularly useful for diagnosing "save stuck" issues related to collec
 - **Elysia**: Run from `/opt/elysia/` using conda environment "elysia"
 
 
+## Architecture
+
+### Service Management
+ElysiaCtl provides unified control over:
+- **Weaviate Cluster**: Three-node configuration (ports 8080, 8081, 8082) managed through Docker Compose
+- **Elysia AI Service**: FastAPI application running in conda environment with process monitoring
+
+### Technical Details
+- Process tracking via PID file (`/tmp/elysia.pid`)
+- Docker container integration for accurate process monitoring
+- Automatic dependency resolution during service startup
+- Graceful shutdown sequences with proper cleanup
+
+### Health Monitoring
+The tool monitors multiple health endpoints:
+- Weaviate nodes: `http://localhost:{8080,8081,8082}/v1/nodes`
+- Elysia service: `http://localhost:8000/docs`
+- Collection replication status across cluster nodes
+
 ## Development
 
-The tool stores the Elysia PID in `/tmp/elysia.pid` for process management.
+### Project Structure
+```
+elysiactl/
+├── pyproject.toml          # UV package configuration
+├── README.md               # This file
+├── ROADMAP.md             # Future development plans
+├── src/elysiactl/         # Source code
+│   ├── cli.py            # Main CLI entry point
+│   ├── commands/         # Command implementations
+│   ├── services/         # Service management logic
+│   └── utils/            # Utility functions
+└── tests/                # Test suite
+```
 
-Health endpoints:
-- Weaviate: http://localhost:8080/v1/nodes
-- Elysia: http://localhost:8000/docs
+### Contributing
+This project uses UV for dependency management. All contributions should maintain the established code structure and follow existing patterns.
+
+## License
+
+Copyright 2025 AeyeOps
+
+## Support
+
+For issues, feature requests, or questions, please visit the [GitHub repository](https://github.com/AeyeOps/elysiactl).
