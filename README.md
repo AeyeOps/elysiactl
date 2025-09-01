@@ -1,10 +1,10 @@
-# ElysiaCtl
+# elysiactl
 
 A command-line utility for managing Elysia AI and Weaviate services in development and production environments. Provides unified control, monitoring, and maintenance for multi-node Weaviate clusters and Elysia AI services.
 
 ## Overview
 
-ElysiaCtl simplifies the orchestration of complex AI infrastructure by providing a single interface to manage both Weaviate vector database clusters and Elysia AI services. It handles service dependencies, monitors cluster health, and provides repair utilities for common configuration issues.
+elysiactl simplifies the orchestration of complex AI infrastructure by providing a single interface to manage both Weaviate vector database clusters and Elysia AI services. It handles service dependencies, monitors cluster health, and provides repair utilities for common configuration issues.
 
 ## Key Features
 
@@ -107,7 +107,7 @@ elysiactl repair config-replication --force     # Skip confirmations
 
 ### Cluster Verification
 
-ElysiaCtl provides comprehensive cluster verification to ensure proper replication across Weaviate nodes:
+elysiactl provides comprehensive cluster verification to ensure proper replication across Weaviate nodes:
 
 - **Replication Factor Validation**: Verifies collections are replicated according to configuration
 - **Node Distribution**: Ensures shards are properly distributed across all nodes
@@ -146,7 +146,7 @@ The verbose mode (`--verbose` or `-v`) provides detailed system insights:
 
 ### System Components
 
-ElysiaCtl manages a complex AI infrastructure consisting of:
+elysiactl manages a complex AI infrastructure consisting of:
 
 #### Weaviate Cluster
 - Three-node distributed configuration

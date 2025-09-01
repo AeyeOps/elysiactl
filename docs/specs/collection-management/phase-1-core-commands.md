@@ -1,7 +1,7 @@
 # Phase 1: Core Collection Commands Implementation
 
 ## Objective
-Implement fundamental CRUD operations for Weaviate collections through ElysiaCtl, providing essential collection management capabilities.
+Implement fundamental CRUD operations for Weaviate collections through elysiactl, providing essential collection management capabilities.
 
 ## Commands to Implement
 
@@ -311,7 +311,7 @@ Type 'yes' to confirm deletion: yes
 ## Dependencies
 
 ### Required Packages
-- Already included in ElysiaCtl:
+- Already included in elysiactl:
   - `httpx` - HTTP client
   - `typer` - CLI framework
   - `rich` - Terminal formatting

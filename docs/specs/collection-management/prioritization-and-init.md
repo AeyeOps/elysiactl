@@ -377,7 +377,7 @@ class OperationLogger:
 
 ### Deployment Configuration
 
-#### ElysiaCtl Updates Required
+#### elysiactl Updates Required
 
 1. **Update CLI Registration**
 ```python
@@ -457,7 +457,7 @@ elysiactl col rm ELYSIA_CONFIG__ --force  # Should prompt
 
 #### User Notification
 ```markdown
-## ElysiaCtl v0.2.0 - Collection Management
+## elysiactl v0.2.0 - Collection Management
 
 New collection management commands:
 - `elysiactl col ls` - List all collections

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-ElysiaCtl Collection Management extends the control utility with comprehensive Weaviate collection operations, providing enterprise-grade tools for managing vector databases at scale. This feature set transforms ElysiaCtl from a service manager into a complete Weaviate administration toolkit.
+elysiactl Collection Management extends the control utility with comprehensive Weaviate collection operations, providing enterprise-grade tools for managing vector databases at scale. This feature set transforms elysiactl from a service manager into a complete Weaviate administration toolkit.
 
 ## Vision
 
@@ -357,4 +357,4 @@ Integration for:
 
 ## Conclusion
 
-The Collection Management feature transforms ElysiaCtl into a comprehensive Weaviate administration tool, providing users with powerful, safe, and intuitive collection operations. Through phased implementation, we ensure each component is thoroughly tested and documented before release, building user confidence and adoption.
+The Collection Management feature transforms elysiactl into a comprehensive Weaviate administration tool, providing users with powerful, safe, and intuitive collection operations. Through phased implementation, we ensure each component is thoroughly tested and documented before release, building user confidence and adoption.

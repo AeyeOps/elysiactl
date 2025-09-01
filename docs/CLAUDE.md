@@ -1,6 +1,6 @@
-# CLAUDE.md - ElysiaCtl Documentation Standards
+# CLAUDE.md - elysiactl Documentation Standards
 
-This file provides guidance for maintaining and extending the specification-driven development process for ElysiaCtl.
+This file provides guidance for maintaining and extending the specification-driven development process for elysiactl.
 
 ## Directory Structure
 
@@ -22,7 +22,7 @@ docs/
 
 ## Documentation Philosophy
 
-ElysiaCtl follows a **specification-first, phase-driven** approach to development:
+elysiactl follows a **specification-first, phase-driven** approach to development:
 
 1. **Specifications Define Intent**: Major features begin with comprehensive specs
 2. **Phases Enable Incremental Progress**: Large features broken into manageable phases
@@ -59,7 +59,7 @@ Every phase specification MUST include these sections in order:
 ```
 ```
 
-### ElysiaCtl-Specific Guidelines
+### elysiactl-Specific Guidelines
 
 1. **UV-First Development**
    - Always use `uv run elysiactl` for testing, not `python -m elysiactl`
@@ -137,7 +137,7 @@ Examples:
 
 ## Architecture Decision Records (ADRs)
 
-ADRs document key architectural and design decisions for ElysiaCtl:
+ADRs document key architectural and design decisions for elysiactl:
 
 ### Required ADR Structure
 1. **# ADR-XXX: [Title]**
@@ -176,7 +176,7 @@ Examples:
 - ❌ Skip verification steps
 - ❌ Ignore cluster/multi-node scenarios
 
-## ElysiaCtl Testing Standards
+## elysiactl Testing Standards
 
 ### CLI Integration Tests
 ```bash
@@ -203,7 +203,7 @@ uv run elysiactl status --json
 # Phase N: [Title]
 
 ## Objective
-[Single sentence goal related to ElysiaCtl functionality]
+[Single sentence goal related to elysiactl functionality]
 
 ## Problem Summary
 [2-3 sentences describing the service management issue]
@@ -269,7 +269,7 @@ uv run elysiactl status --json
 - Keep running list of completed phases in overview
 - Document lessons learned about service management
 
-## ElysiaCtl-Specific Tips
+## elysiactl-Specific Tips
 
 1. **Always Test with UV**: Use `uv run elysiactl` not `python -m elysiactl`
 2. **Consider Both Modes**: Test single-node and cluster configurations
@@ -288,9 +288,9 @@ uv run elysiactl status --json
 
 ## Questions or Improvements?
 
-This process is designed to evolve with ElysiaCtl's needs. If you identify improvements:
+This process is designed to evolve with elysiactl's needs. If you identify improvements:
 1. Create an ADR proposing the change
 2. Update this CLAUDE.md file
 3. Apply the new process to future phases
 
-Remember: The goal is sustainable, incremental progress with high confidence in each change while maintaining ElysiaCtl's focus on reliable service management.
+Remember: The goal is sustainable, incremental progress with high confidence in each change while maintaining elysiactl's focus on reliable service management.

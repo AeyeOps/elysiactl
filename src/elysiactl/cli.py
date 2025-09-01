@@ -1,4 +1,4 @@
-"""Main CLI application for ElysiaCtl."""
+"""Main CLI application for elysiactl."""
 
 import typer
 from typing import Optional
@@ -11,6 +11,7 @@ from .commands.stop import stop_command
 from .commands.status import status_command
 from .commands.health import health_command
 from .commands.repair import app as repair_app
+from .commands.index import app as index_app
 
 console = Console()
 
@@ -34,10 +35,11 @@ def main(
                     help="Show version and exit")
     ] = None,
 ):
-    """ElysiaCtl - Service management for Elysia AI and Weaviate."""
+    """elysiactl - Service management for Elysia AI and Weaviate."""
     pass
 
 app.add_typer(repair_app, name="repair", help="Repair cluster issues")
+app.add_typer(index_app, name="index", help="Index source code into Weaviate")
 
 
 @app.command()

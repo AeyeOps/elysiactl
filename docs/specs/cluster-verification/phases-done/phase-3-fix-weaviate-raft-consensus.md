@@ -322,7 +322,7 @@ chmod +x /opt/weaviate/fix-collections.sh
 /opt/weaviate/fix-collections.sh
 ```
 
-### Step 7: Verify with ElysiaCtl
+### Step 7: Verify with elysiactl
 ```bash
 uv run elysiactl health --cluster
 ```
@@ -354,7 +354,7 @@ curl -s http://localhost:8080/v1/nodes | jq '.nodes | length'
 curl -s http://localhost:8080/v1/schema/ELYSIA_CONFIG__ | jq '.replicationConfig'
 # Should show: {"factor": 3, "asyncEnabled": true}
 
-# Verify with ElysiaCtl
+# Verify with elysiactl
 uv run elysiactl health --cluster
 # Should show ELYSIA_CONFIG__ properly replicated
 
@@ -377,7 +377,7 @@ done
 - [ ] Collections show replication_factor=3 in schema
 - [ ] Collections have shards distributed across nodes
 - [ ] No "async replication disabled" messages in logs
-- [ ] ElysiaCtl health --cluster shows correct replication
+- [ ] elysiactl health --cluster shows correct replication
 - [ ] Data inserted on node1 is readable from nodes 2 and 3
 - [ ] Can achieve QUORUM consistency level for reads
 
@@ -396,7 +396,7 @@ If the changes cause issues:
 - After fix, collections will truly replicate across nodes
 - This enables high availability and fault tolerance as intended
 
-## Future Improvements for ElysiaCtl
+## Future Improvements for elysiactl
 1. Add RAFT consensus check: `curl /v1/cluster/statistics`
 2. Distinguish between sharding and replication in reports
 3. Check for "async replication disabled" in logs

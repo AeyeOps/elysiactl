@@ -1,4 +1,4 @@
-# Claude Code Configuration - ElysiaCtl Project
+# Claude Code Configuration - elysiactl Project
 
 ## CRITICAL: File Discipline Rules
 
@@ -143,6 +143,30 @@ Spend 10% (or less) on:
 - Broken features need immediate attention
 - Problems hidden behind success theater don't get fixed
 - Real collaboration happens when we face issues honestly
+
+## Configuration Over Hardcoding
+
+### NEVER Hardcode - Always Configure
+- **NEVER hardcode URLs** - use config files or environment variables
+- **NEVER hardcode paths** - accept as parameters or discover dynamically
+- **NEVER hardcode patterns** - make them configurable options
+- **NEVER hardcode service locations** - localhost:8080 assumptions break
+- **Commands should describe WHAT, not WHO/WHERE**
+  - ✅ Good: `index scan <directory> --pattern <pattern>`
+  - ❌ Bad: `index enterprise` (hardcoded location/purpose)
+
+### Configuration Hierarchy
+1. **Command-line arguments** - highest precedence for flexibility
+2. **Environment variables** - for deployment configuration
+3. **Config files** - for project defaults
+4. **Sensible defaults** - only as last resort, must be overridable
+
+### Anti-Patterns to Avoid
+- **Embedding business logic in commands** (specific company patterns)
+- **Function names that describe specific use cases** rather than operations
+- **String replacements that assume specific formats**
+- **Hardcoded replication factors, batch sizes, or limits**
+- **Assuming single instance** (always consider multi-node/cluster scenarios)
 
 ## Lessons Learned
 

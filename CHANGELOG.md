@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to ElysiaCtl will be documented in this file.
+All notable changes to elysiactl will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-09-01
 
 ### Added
-- Initial release of ElysiaCtl
+- Initial release of elysiactl
 - Service orchestration for Weaviate and Elysia AI services
 - Multi-node Weaviate cluster support (3 nodes)
 - Individual node health monitoring with Docker integration

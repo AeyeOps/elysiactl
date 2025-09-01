@@ -19,7 +19,7 @@ The principle of "explicit over magic" suggests that diagnostic tools should inf
 
 ## Decision
 
-ElysiaCtl will NOT implement automatic repair functionality. Instead:
+elysiactl will NOT implement automatic repair functionality. Instead:
 
 1. **Detection Only**: The `--cluster` flag will identify and report issues clearly
 2. **Actionable Guidance**: Error messages will include specific remediation steps
@@ -64,7 +64,7 @@ ElysiaCtl will NOT implement automatic repair functionality. Instead:
 
 ## Related
 
-This decision aligns with ElysiaCtl's philosophy of explicit control over service management operations. Future ADRs may revisit this decision if:
+This decision aligns with elysiactl's philosophy of explicit control over service management operations. Future ADRs may revisit this decision if:
 
 1. Significant user feedback indicates the burden outweighs the safety benefits
 2. Safer repair mechanisms are identified (e.g., staging environments, atomic operations)

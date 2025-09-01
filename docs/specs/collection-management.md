@@ -1,7 +1,7 @@
-# ElysiaCtl Collection Management Specification
+# elysiactl Collection Management Specification
 
 ## Overview
-Add collection management capabilities to ElysiaCtl for managing Weaviate collections through a simple CLI interface.
+Add collection management capabilities to elysiactl for managing Weaviate collections through a simple CLI interface.
 
 ## Command Structure
 
