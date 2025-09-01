@@ -5,6 +5,28 @@ All notable changes to ElysiaCtl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.1.2] - 2024-12-17
+
+### Added
+- **Dynamic collection parameter for repair command** - Can now repair any ELYSIA_* collection, not just ELYSIA_CONFIG__
+- **Data export functionality** - Safely exports collection data before deletion with timestamped JSON files
+- **Dynamic system collection discovery** - Health command automatically discovers all ELYSIA_* collections
+- **Single-source version management** - Version read dynamically from pyproject.toml using importlib.metadata
+- **Formatted guidance panels** - Better visual presentation of repair options and guidance
+- **Replication settling wait** - 2-second wait for RAFT consensus to settle during verification
+
+### Changed
+- **Removed lag detection test** - Eliminated problematic test record writes that failed with ELYSIA_* schemas
+- **Enhanced --force flag** - Now skips data export for emergency repairs
+- **Improved error messages** - Clearer guidance for recovery and troubleshooting
+
+### Fixed
+- **ELYSIA_TREES__ replication factor** - Repair command can now fix collections created with factor=1
+- **"Unable to write test record" warnings** - No longer attempts invalid writes to system collections
+- **Collection data protection** - Prevents accidental data loss during repair operations
+
 ## [0.1.1] - 2025-09-01
 
 ### Added

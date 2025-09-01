@@ -1,6 +1,6 @@
 [project]
 name = "elysiactl"
-version = "0.1.2"
+version = "0.1.3"
 description = "Control utility for managing Elysia AI and Weaviate services"
 readme = "README.md"
 authors = [
