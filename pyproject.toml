@@ -1,0 +1,28 @@
+[project]
+name = "elysiactl"
+version = "0.1.0"
+description = "Control utility for managing Elysia AI and Weaviate services"
+readme = "README.md"
+authors = [
+    { name = "Development Team" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "httpx>=0.24.0",
+    "psutil>=5.9.0",
+]
+
+[project.scripts]
+elysiactl = "elysiactl.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []
+
+[project.urls]
+Repository = "https://github.com/your-org/elysiactl"
