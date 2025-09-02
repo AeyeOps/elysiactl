@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-01-01
+## [0.4.0] - 2025-09-02
 
 ### Added
 - **Complete Phase 2 Collection Management System** - Major new feature set adding comprehensive collection backup/restore/clear capabilities
