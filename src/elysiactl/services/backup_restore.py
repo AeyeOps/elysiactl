@@ -12,6 +12,170 @@ from rich.progress import Progress, TaskID, SpinnerColumn, TextColumn, BarColumn
 console = Console()
 
 
+class ClearManager:
+    """Handle collection clearing operations with safety features."""
+
+    def __init__(self, base_url: str = "http://localhost:8080"):
+        self.base_url = base_url.rstrip("/")
+        self.client = httpx.Client(timeout=30.0)
+
+    def clear_collection(self, collection_name: str, force: bool = False, dry_run: bool = False) -> bool:
+        """Clear all objects from a collection with safety checks."""
+        
+        # Validate collection exists
+        if not self.collection_exists(collection_name):
+            raise ValueError(f"Collection '{collection_name}' not found")
+
+        # Get collection info for safety check
+        info = self.get_collection_info(collection_name)
+        
+        if dry_run:
+            return self._dry_run_clear(collection_name, info)
+
+        # Safety checks
+        if not force:
+            self._safety_check_clear(collection_name, info)
+
+        # Perform the clear operation
+        return self._execute_clear(collection_name, info)
+
+    def _safety_check_clear(self, collection_name: str, info: dict):
+        """Perform safety checks before clearing."""
+        
+        object_count = info.get('object_count', 0)
+        
+        if object_count == 0:
+            console.print(f"[yellow]Collection '{collection_name}' is already empty[/yellow]")
+            return
+
+        console.print(f"[red]⚠ DANGER: This will delete {object_count:,} objects from '{collection_name}'[/red]")
+        console.print("This action cannot be undone!")
+        
+        # Additional safety for large collections
+        if object_count > 10000:
+            console.print(f"[red]⚠ EXTRA WARNING: Large collection ({object_count:,} objects)[/red]")
+            console.print("Consider backup before proceeding")
+        
+        # Require explicit confirmation
+        response = input(f"Type 'YES' to confirm clearing '{collection_name}': ")
+        if response != 'YES':
+            console.print("[blue]Clear operation cancelled[/blue]")
+            return False
+            
+        return True
+
+    def _execute_clear(self, collection_name: str, info: dict) -> bool:
+        """Execute the clear operation."""
+        
+        object_count = info.get('object_count', 0)
+        console.print(f"[bold]Clearing {object_count:,} objects from '{collection_name}'...[/bold]")
+        
+        try:
+            # Delete all objects in batches
+            deleted_count = self._delete_all_objects(collection_name)
+            
+            console.print(f"[green]✓ Successfully cleared {deleted_count:,} objects from '{collection_name}'[/green]")
+            return True
+            
+        except Exception as e:
+            console.print(f"[red]✗ Failed to clear collection: {e}[/red]")
+            return False
+
+    def _delete_all_objects(self, collection_name: str) -> int:
+        """Delete all objects from collection in batches."""
+        
+        total_deleted = 0
+        batch_size = 100
+        
+        while True:
+            # Get batch of objects
+            objects = self._get_object_batch(collection_name, batch_size)
+            
+            if not objects:
+                break
+                
+            # Delete batch
+            self._delete_object_batch(objects)
+            total_deleted += len(objects)
+            
+            console.print(f"[dim]Deleted {total_deleted} objects...[/dim]")
+            
+            if len(objects) < batch_size:
+                break
+                
+        return total_deleted
+
+    def _get_object_batch(self, collection_name: str, limit: int) -> list:
+        """Get a batch of objects for deletion."""
+        
+        try:
+            response = self.client.get(
+                f"{self.base_url}/v1/objects",
+                params={"class": collection_name, "limit": limit}
+            )
+            response.raise_for_status()
+            return response.json().get("objects", [])
+        except:
+            return []
+
+    def _delete_object_batch(self, objects: list):
+        """Delete a batch of objects."""
+        
+        for obj in objects:
+            obj_id = obj.get("id")
+            if obj_id:
+                try:
+                    response = self.client.delete(f"{self.base_url}/v1/objects/{obj_id}")
+                    response.raise_for_status()
+                except Exception as e:
+                    console.print(f"[yellow]Warning: Failed to delete object {obj_id}: {e}[/yellow]")
+
+    def _dry_run_clear(self, collection_name: str, info: dict) -> bool:
+        """Show what would be cleared without making changes."""
+        
+        object_count = info.get('object_count', 0)
+        
+        console.print(f"[yellow]DRY RUN: Clear collection '{collection_name}'[/yellow]")
+        console.print(f"Objects that would be deleted: {object_count:,}")
+        
+        if object_count > 0:
+            console.print(f"[red]⚠ This would permanently delete all {object_count:,} objects[/red]")
+        else:
+            console.print(f"[green]Collection is already empty[/green]")
+            
+        return True
+
+    def collection_exists(self, collection_name: str) -> bool:
+        """Check if collection exists."""
+        try:
+            response = self.client.get(f"{self.base_url}/v1/schema/{collection_name}")
+            return response.status_code == 200
+        except:
+            return False
+
+    def get_collection_info(self, collection_name: str) -> dict:
+        """Get basic collection information."""
+        try:
+            response = self.client.get(f"{self.base_url}/v1/schema/{collection_name}")
+            response.raise_for_status()
+            schema = response.json()
+            
+            # Get object count
+            response = self.client.get(
+                f"{self.base_url}/v1/objects",
+                params={"class": collection_name, "limit": 0}
+            )
+            object_count = response.json().get("totalResults", 0) if response.status_code == 200 else 0
+            
+            return {
+                "name": collection_name,
+                "object_count": object_count,
+                "schema": schema
+            }
+        except:
+            return {"name": collection_name, "object_count": 0, "schema": {}}
+
+
 class BackupManager:
     """Handle collection backup operations."""
 
@@ -374,7 +538,7 @@ class RestoreManager:
         self.base_url = base_url.rstrip("/")
         self.client = httpx.Client(timeout=30.0)
 
-    def restore_collection(self, backup_path: Path, collection_name: str = None, skip_data: bool = False, dry_run: bool = False) -> bool:
+    def restore_collection(self, backup_path: Path, collection_name: str = None, skip_data: bool = False, merge: bool = False, dry_run: bool = False) -> bool:
         """Restore a collection from backup."""
 
         # 1. Load and validate backup
@@ -385,21 +549,29 @@ class RestoreManager:
         target_name = collection_name or backup_data["schema"]["class"]
 
         if dry_run:
-            return self.dry_run_restore(backup_data, target_name, skip_data)
+            return self.dry_run_restore(backup_data, target_name, skip_data, merge)
 
         # 3. Check if collection already exists
         if self.collection_exists(target_name):
-            console.print(f"[red]✗ Collection '{target_name}' already exists[/red]")
-            console.print("[yellow]Use --merge option when implemented (Phase 2D)[/yellow]")
-            return False
+            if merge:
+                console.print(f"[yellow]Collection '{target_name}' exists - performing merge restore[/yellow]")
+            else:
+                console.print(f"[red]✗ Collection '{target_name}' already exists[/red]")
+                console.print("[yellow]Use --merge option for merge restore (Phase 2D)[/yellow]")
+                return False
 
-        # 4. Create collection with schema
-        console.print(f"[bold]Creating collection '{target_name}'...[/bold]")
-        self.create_collection_from_schema(backup_data["schema"], target_name)
+        # 4. Create collection with schema (skip if merging)
+        if not merge:
+            console.print(f"[bold]Creating collection '{target_name}'...[/bold]")
+            self.create_collection_from_schema(backup_data["schema"], target_name)
+        else:
+            console.print(f"[bold]Merging into existing collection '{target_name}'...[/bold]")
+            # Validate schema compatibility for merge
+            self.validate_schema_compatibility(backup_data["schema"], target_name)
 
         # 5. Restore data if requested and available
         if not skip_data and backup_data.get("objects"):
-            self.restore_objects_with_progress(target_name, backup_data["objects"])
+            self.restore_objects_with_progress(target_name, backup_data["objects"], merge)
 
         console.print(f"[green]✓ Collection '{target_name}' restored successfully[/green]")
         return True
@@ -425,6 +597,36 @@ class RestoreManager:
         if meta.get("version") != "1.0":
             console.print(f"[yellow]⚠ Backup version {meta.get('version')} may not be fully compatible[/yellow]")
 
+    def validate_schema_compatibility(self, backup_schema: dict, collection_name: str):
+        """Validate that backup schema is compatible with existing collection for merge."""
+        
+        try:
+            response = self.client.get(f"{self.base_url}/v1/schema/{collection_name}")
+            response.raise_for_status()
+            existing_schema = response.json()
+            
+            # Basic compatibility checks
+            backup_props = {prop["name"]: prop for prop in backup_schema.get("properties", [])}
+            existing_props = {prop["name"]: prop for prop in existing_schema.get("properties", [])}
+            
+            # Check for missing properties in existing schema
+            missing_props = set(backup_props.keys()) - set(existing_props.keys())
+            if missing_props:
+                console.print(f"[yellow]⚠ Warning: Properties {missing_props} exist in backup but not in target collection[/yellow]")
+                console.print("[yellow]These properties will be added if possible[/yellow]")
+                
+            # Check for type mismatches
+            for prop_name in set(backup_props.keys()) & set(existing_props.keys()):
+                backup_type = backup_props[prop_name].get("dataType", [])
+                existing_type = existing_props[prop_name].get("dataType", [])
+                if backup_type != existing_type:
+                    console.print(f"[red]✗ Type mismatch for property '{prop_name}': backup={backup_type}, existing={existing_type}[/red]")
+                    raise ValueError(f"Schema incompatibility: property '{prop_name}' type mismatch")
+                    
+        except Exception as e:
+            console.print(f"[red]✗ Schema validation failed: {e}[/red]")
+            raise
+
     def create_collection_from_schema(self, schema: dict, collection_name: str):
         """Create collection using schema from backup."""
 
@@ -440,7 +642,7 @@ class RestoreManager:
         if response.status_code not in [200, 201]:
             raise Exception(f"Failed to create collection: {response.text}")
 
-    def restore_objects_with_progress(self, collection_name: str, objects: List[dict]):
+    def restore_objects_with_progress(self, collection_name: str, objects: List[dict], merge: bool = False):
         """Restore objects with progress tracking."""
 
         total_objects = len(objects)
@@ -493,7 +695,7 @@ class RestoreManager:
         except:
             return False
 
-    def dry_run_restore(self, backup_data: dict, collection_name: str, skip_data: bool) -> bool:
+    def dry_run_restore(self, backup_data: dict, collection_name: str, skip_data: bool, merge: bool = False) -> bool:
         """Show what would be restored without making changes."""
 
         console.print(f"[bold]Dry Run: Restore to '{collection_name}'[/bold]")
@@ -508,7 +710,10 @@ class RestoreManager:
 
         # Check if target collection exists
         if self.collection_exists(collection_name):
-            console.print(f"[yellow]⚠ Target collection '{collection_name}' already exists[/yellow]")
+            if merge:
+                console.print(f"[yellow]⚠ Target collection '{collection_name}' exists - will perform merge[/yellow]")
+            else:
+                console.print(f"[yellow]⚠ Target collection '{collection_name}' already exists[/yellow]")
         else:
             console.print(f"[green]✓ Target collection '{collection_name}' available[/green]")
 

@@ -10,7 +10,7 @@ from ..services.weaviate_collections import (
     WeaviateCollectionManager,
     CollectionNotFoundError
 )
-from ..services.backup_restore import BackupManager, RestoreManager
+from ..services.backup_restore import BackupManager, RestoreManager, ClearManager
 
 app = typer.Typer(help="Manage Weaviate collections")
 console = Console()
@@ -19,6 +19,7 @@ console = Console()
 manager = WeaviateCollectionManager()
 backup_manager = BackupManager()
 restore_manager = RestoreManager()
+clear_manager = ClearManager()
 
 
 def print_error(message: str):
@@ -178,16 +179,18 @@ def restore_collection(
     backup_file: Path = typer.Argument(..., help="Path to backup file"),
     name: str = typer.Option(None, "--name", help="Override collection name"),
     skip_data: bool = typer.Option(False, "--skip-data", help="Restore schema only"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be restored")
+    merge: bool = typer.Option(False, "--merge", help="Merge with existing collection (Phase 2D)"),
 ):
     """Restore collection from backup file."""
     try:
-        success = restore_manager.restore_collection(backup_file, name, skip_data, dry_run)
+        success = restore_manager.restore_collection(backup_file, name, skip_data, merge, dry_run)
 
         if success and not dry_run:
             collection_name = name or "original name"
             if skip_data:
                 print_success(f"Schema-only restore completed to '{collection_name}'")
+            elif merge:
+                print_success(f"Merge restore completed to '{collection_name}'")
             else:
                 print_success(f"Full restore completed to '{collection_name}'")
         elif dry_run:
@@ -199,8 +202,26 @@ def restore_collection(
     except ValueError as e:
         print_error(f"Invalid backup file: {e}")
         raise typer.Exit(1)
+@app.command("clear", help="Clear all objects from a collection")
+def clear_collection(
+    name: str = typer.Argument(..., help="Collection name to clear"),
+    force: bool = typer.Option(False, "--force", help="Skip confirmation prompts"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleared")
+):
+    """Clear all objects from a collection with safety checks."""
+    try:
+        success = clear_manager.clear_collection(name, force, dry_run)
+        
+        if success and not dry_run:
+            print_success(f"Collection '{name}' cleared successfully")
+        elif dry_run:
+            console.print("[blue]Dry run completed - no changes made[/blue]")
+            
+    except ValueError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
     except Exception as e:
-        print_error(f"Restore failed: {e}")
+        print_error(f"Clear failed: {e}")
         raise typer.Exit(1)
 
 
