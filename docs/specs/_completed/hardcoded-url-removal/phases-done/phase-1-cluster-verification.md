@@ -77,7 +77,7 @@ uv run python -m elysiactl cluster-verification
 ### Configuration Test
 ```bash
 # Test with custom Weaviate URL
-export WEAVIATE_URL="http://custom-host:8080"
+export WCD_URL="http://custom-host:8080"
 uv run python -m elysiactl cluster-verification
 
 # Verify URL construction
@@ -98,7 +98,7 @@ uv run pytest tests/ -k cluster_verification -v
 1. **No Hardcoded URLs**: All 6 hardcoded `localhost:8080` URLs are replaced
 2. **Config Integration**: Import and usage of `get_config()` is correctly implemented
 3. **URL Format Correctness**: All URLs use `weaviate_base_url` and maintain correct `/nodes/{node_name}` endpoint format
-4. **Backward Compatibility**: Default behavior with `WEAVIATE_URL=http://localhost:8080` remains unchanged
+4. **Backward Compatibility**: Default behavior with `WCD_URL=http://localhost:8080` remains unchanged
 5. **Custom URL Support**: Tool works with different Weaviate URLs via environment variables
 6. **No Regression**: All existing cluster verification functionality continues to work
 7. **Clean Import**: Config import is properly placed and does not cause circular dependencies
@@ -107,7 +107,7 @@ uv run pytest tests/ -k cluster_verification -v
 
 1. **Code Review**: Confirm all 6 URLs are replaced and import is added
 2. **URL Construction**: Verify that `{config.services.weaviate_base_url}/nodes/{node_name}` produces correct URLs
-3. **Environment Variable Test**: Confirm tool respects `WEAVIATE_URL` environment variable
+3. **Environment Variable Test**: Confirm tool respects `WCD_URL` environment variable
 4. **Local Test**: Ensure default localhost behavior is preserved
 5. **Remote Test**: Verify tool can connect to non-localhost Weaviate instances
 

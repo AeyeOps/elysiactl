@@ -42,7 +42,7 @@ class ServiceConfig:
     def weaviate_port(self) -> int:
         """Extract port from Weaviate URL."""
         from urllib.parse import urlparse
-        parsed = urlparse(self.weaviate_url)
+        parsed = urlparse(self.WCD_URL)
         return parsed.port or (443 if parsed.scheme == 'https' else 8080)
     
     @property
@@ -113,7 +113,7 @@ print('Port range:', config.services.get_weaviate_port_range())
 "
 
 # Test custom URL port extraction
-export WEAVIATE_URL="http://custom-host:9080"
+export WCD_URL="http://custom-host:9080"
 export ELYSIA_URL="http://elysia-host:9000"
 uv run python -c "
 from src.elysiactl.config import get_config
@@ -127,7 +127,7 @@ print('Custom port range:', config.services.get_weaviate_port_range())
 ### HTTPS Port Test
 ```bash
 # Test HTTPS URLs use correct default ports
-export WEAVIATE_URL="https://cloud.weaviate.io"
+export WCD_URL="https://cloud.weaviate.io"
 export ELYSIA_URL="https://elysia.example.com"
 uv run python -c "
 from src.elysiactl.config import get_config

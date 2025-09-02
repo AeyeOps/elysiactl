@@ -129,13 +129,12 @@ Key additions:
 We use an intelligent three-tier content strategy that optimizes for minimum total I/O time:
 
 ```python
-def emit_change(file_path, operation, line_num):
+def emit_change(file_path, operation):
     """Smart content embedding based on I/O optimization."""
     stat = os.stat(file_path)
     mime = magic.from_file(file_path, mime=True)
     
     change = {
-        "line": line_num,  # In-band line number for checkpointing
         "repo": repo_name,
         "op": operation,
         "path": file_path,
@@ -179,12 +178,24 @@ For 1000 typical source files (average 25KB):
 - **All references**: 2000 I/O ops, 8.2 seconds
 - **Smart embedding**: 1 sequential read, 2.1 seconds (4× faster!)
 
-Example JSONL stream with smart embedding:
+Example JSONL stream with smart embedding (mgit output):
 ```jsonl
-{"line": 1, "repo": "ServiceA", "op": "add", "path": "config.json", "content": "{\"api\": \"v2\"}", "size": 13}
-{"line": 2, "repo": "ServiceA", "op": "modify", "path": "src/auth.py", "content_base64": "aW1wb3J0IG9zCi4uLg==", "size": 45000}
-{"line": 3, "repo": "ServiceA", "op": "modify", "path": "docs/manual.pdf", "content_ref": "/opt/pdi/Enterprise/ServiceA/docs/manual.pdf", "size": 5242880, "skip_index": true}
-{"line": 4, "repo": "ServiceA", "new_changeset": {"commit": "xyz789", "parent": "abc123", "tree_hash": "..."}}
+{"repo": "ServiceA", "op": "add", "path": "config.json", "content": "{\"api\": \"v2\"}", "size": 13}
+{"repo": "ServiceA", "op": "modify", "path": "src/auth.py", "content_base64": "aW1wb3J0IG9zCi4uLg==", "size": 45000}
+{"repo": "ServiceA", "op": "modify", "path": "docs/manual.pdf", "content_ref": "/opt/pdi/Enterprise/ServiceA/docs/manual.pdf", "size": 5242880, "skip_index": true}
+{"repo": "ServiceA", "new_changeset": {"commit": "xyz789", "parent": "abc123", "tree_hash": "..."}}
+```
+
+**Line Number Responsibility:**
+
+mgit produces clean JSONL focused on change detection and content optimization. elysiactl adds line numbers during consumption for its own checkpoint tracking:
+
+```python
+# elysiactl adds line numbers as it reads the stream
+for line_number, line in enumerate(sys.stdin, 1):
+    data = json.loads(line)
+    data['line'] = line_number  # elysiactl adds for checkpoint tracking
+    process_change(data)
 ```
 
 **With zstd compression, base64 overhead nearly vanishes:**
@@ -291,7 +302,7 @@ Start
 ┌─────────────────────────┐
 │ Generate Diff Stream    │
 │ - Use libgit2 walk      │
-│ - Add line numbers      │
+│ - Emit clean JSONL      │
 │ - Compress with zstd    │
 └───────┬─────────────────┘
         │
@@ -928,8 +939,8 @@ This architecture achieves **20× performance improvement** while maintaining **
     └────────────┬────────────────────┘
                  │
                  │ # Output Format:
-                 │ - JSONL stream (one op per line)
-                 │ - 16-byte line number prefix
+                 │ - Pure JSONL stream (one op per line)
+                 │ - No line numbers (elysiactl adds them)
                  │ - zstd compressed
                  │ - Self-contained operations
                  ▼
@@ -938,8 +949,8 @@ This architecture achieves **20× performance improvement** while maintaining **
     │     changes.jsonl.zst           │
     └────────────┬────────────────────┘
                  │
-                 │ # Line Format (pure JSONL):
-                 │ {"line": 1, "repo": "ServiceA",
+                 │ # Line Format (pure JSONL from mgit):
+                 │ {"repo": "ServiceA",
                  │  "op": "modify",
                  │  "path": "src/auth.py",
                  │  "content_ref": "/opt/pdi/Enterprise/ServiceA/src/auth.py",
@@ -947,14 +958,14 @@ This architecture achieves **20× performance improvement** while maintaining **
                  │  "mime": "text/x-python"}
                  │
                  │ # Small file with embedded content:
-                 │ {"line": 2, "repo": "ServiceA",
+                 │ {"repo": "ServiceA",
                  │  "op": "add",
                  │  "path": "config.ini",
                  │  "content": "[database]\nhost=localhost",
                  │  "size": 28}
                  │
                  │ # Final Line:
-                 │ {"line": 999, "repo": "ServiceA",
+                 │ {"repo": "ServiceA",
                  │  "new_changeset": {
                  │    "commit": "xyz789",
                  │    "parent": "abc123"}}
@@ -1006,15 +1017,15 @@ timestamp: 2025-01-01T10:00:00Z
 files_indexed: 1234        # Count for validation
 ```
 
-#### JSONL Stream Format
+#### JSONL Stream Format (mgit output)
 ```jsonl
-# Pure JSONL - no magic prefixes, fully standard compliant
-{"line": 1, "repo": "ServiceA", "op": "add", "path": "src/new.py", "content_ref": "/opt/pdi/Enterprise/ServiceA/src/new.py", "size": 4532, "mime": "text/x-python"}
-{"line": 2, "repo": "ServiceA", "op": "modify", "path": "src/main.py", "content": "def main():\n    pass", "size": 28, "mime": "text/x-python"}
-{"line": 3, "repo": "ServiceA", "op": "delete", "path": "src/old.py"}
+# Pure JSONL from mgit - no line numbers, fully standard compliant
+{"repo": "ServiceA", "op": "add", "path": "src/new.py", "content_ref": "/opt/pdi/Enterprise/ServiceA/src/new.py", "size": 4532, "mime": "text/x-python"}
+{"repo": "ServiceA", "op": "modify", "path": "src/main.py", "content": "def main():\n    pass", "size": 28, "mime": "text/x-python"}
+{"repo": "ServiceA", "op": "delete", "path": "src/old.py"}
 
 # Changeset update line (last per repo)
-{"line": 4, "repo": "ServiceA", "new_changeset": {"commit": "xyz789", "parent": "abc123", "branch": "main", "tree_hash": "...", "timestamp": "..."}}
+{"repo": "ServiceA", "new_changeset": {"commit": "xyz789", "parent": "abc123", "branch": "main", "tree_hash": "...", "timestamp": "..."}}
 ```
 
 #### SQLite Checkpoint Schema

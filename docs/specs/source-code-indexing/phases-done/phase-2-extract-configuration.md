@@ -180,7 +180,7 @@ if collection is None:
 uv run elysiactl index status
 
 # Test with custom configuration
-export WEAVIATE_URL="http://weaviate.example.com:8080"
+export WCD_URL="http://weaviate.example.com:8080"
 export elysiactl_DEFAULT_SOURCE_COLLECTION="TEST_SRC__"
 uv run elysiactl index status
 
@@ -195,7 +195,7 @@ uv run elysiactl index enterprise --help
 ### Configuration Environment Tests
 ```bash
 # Test different Weaviate URLs
-export WEAVIATE_URL="http://localhost:9080"
+export WCD_URL="http://localhost:9080"
 uv run elysiactl index status
 
 # Test custom enterprise directory
@@ -225,5 +225,5 @@ uv run elysiactl index enterprise --dry-run
 - [ ] Repository pattern replacement is configurable, not hardcoded
 - [ ] Commands work with non-default Weaviate URLs (test with localhost:9080)
 - [ ] All existing functionality preserved with no regressions
-- [ ] `uv run elysiactl index status` works with custom WEAVIATE_URL
+- [ ] `uv run elysiactl index status` works with custom WCD_URL
 - [ ] `uv run elysiactl index enterprise --dry-run` shows configurable patterns

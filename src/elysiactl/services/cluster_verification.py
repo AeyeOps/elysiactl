@@ -9,6 +9,7 @@ import httpx
 import json
 
 from .weaviate import WeaviateService
+from ..config import get_config
 
 
 @dataclass
@@ -68,8 +69,9 @@ class ClusterVerifier:
     
     def __init__(self, weaviate_service: WeaviateService):
         self.weaviate = weaviate_service
-        self.nodes = [8080, 8081, 8082]
-        self.expected_node_count = 3
+        config = get_config()
+        self.nodes = config.services.weaviate_cluster_ports
+        self.expected_node_count = len(self.nodes)
         # Expected system collections that should exist
         self.system_collections = ["ELYSIA_CONFIG__", "ELYSIA_TREES__", "ELYSIA_FEEDBACK__", "ELYSIA_METADATA__"]
         
@@ -120,9 +122,11 @@ class ClusterVerifier:
         
         async with httpx.AsyncClient(timeout=5.0) as client:
             # Check each node
+            config = get_config()
+            hostname = config.services.weaviate_hostname
             for port in self.nodes:
                 try:
-                    response = await client.get(f"http://localhost:{port}/v1/nodes")
+                    response = await client.get(f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/nodes")
                     if response.status_code == 200:
                         healthy_nodes.append(port)
                         # Get cluster info from first healthy node
@@ -151,7 +155,7 @@ class ClusterVerifier:
                                 
                 except Exception as e:
                     result.issues.append(Issue(
-                        severity="critical" if port == 8080 else "high",
+                        severity="critical" if port == self.nodes[0] else "high",
                         message=f"Node {port} unreachable: {str(e)}",
                         node=port
                     ))
@@ -175,7 +179,7 @@ class ClusterVerifier:
             existing_elysia_collections = []
             try:
                 # Get all collections from schema
-                response = await client.get(f"http://localhost:8080/v1/schema")
+                response = await client.get(f"{get_config().services.weaviate_base_url}/schema")
                 if response.status_code == 200:
                     schema = response.json()
                     all_collections = [c['class'] for c in schema.get('classes', [])]
@@ -226,7 +230,7 @@ class ClusterVerifier:
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 # Get all collections from primary node
-                response = await client.get("http://localhost:8080/v1/schema")
+                response = await client.get(f"{get_config().services.weaviate_base_url}/schema")
                 if response.status_code != 200:
                     result.warnings.append(Warning("Unable to fetch schema for derived collections check"))
                     return
@@ -274,7 +278,7 @@ class ClusterVerifier:
         
         try:
             # Check collection schema on primary node
-            response = await client.get(f"http://localhost:8080/v1/schema/{collection_name}")
+            response = await client.get(f"{get_config().services.weaviate_base_url}/schema/{collection_name}")
             
             if response.status_code == 200:
                 status.exists = True
@@ -288,7 +292,7 @@ class ClusterVerifier:
                 # Check distribution across nodes
                 for port in self.nodes:
                     try:
-                        node_response = await client.get(f"http://localhost:{port}/v1/schema")
+                        node_response = await client.get(f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/schema")
                         if node_response.status_code == 200:
                             node_schema = node_response.json()
                             classes = node_schema.get("classes", [])
@@ -303,7 +307,7 @@ class ClusterVerifier:
                 # Get data count (from primary node)
                 try:
                     count_response = await client.post(
-                        "http://localhost:8080/v1/graphql",
+                        f"{get_config().services.weaviate_base_url}/graphql",
                         json={
                             "query": f"{{ Aggregate {{ {collection_name} {{ meta {{ count }} }} }} }}"
                         }
@@ -323,7 +327,7 @@ class ClusterVerifier:
                                 # Re-check node distribution after forcing replication
                                 for port in self.nodes:
                                     try:
-                                        node_response = await client.get(f"http://localhost:{port}/v1/schema")
+                                        node_response = await client.get(f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/schema")
                                         if node_response.status_code == 200:
                                             node_schema = node_response.json()
                                             classes = node_schema.get("classes", [])
@@ -361,7 +365,7 @@ class ClusterVerifier:
                     if port in status.node_distribution and status.node_distribution[port] > 0:
                         try:
                             count_response = await client.post(
-                                f"http://localhost:{port}/v1/graphql",
+                                f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/graphql",
                                 json={
                                     "query": f"{{ Aggregate {{ {collection_name} {{ meta {{ count }} }} }} }}"
                                 }
@@ -414,7 +418,7 @@ class ClusterVerifier:
             # Insert test record to trigger replication using correct endpoint
             async with httpx.AsyncClient() as client:
                 insert_response = await client.post(
-                    "http://localhost:8080/v1/objects",
+                    f"{get_config().services.weaviate_base_url}/objects",
                     json=test_data,
                     timeout=5.0
                 )
@@ -432,7 +436,7 @@ class ClusterVerifier:
                 
                 # Delete the test record
                 delete_response = await client.delete(
-                    f"http://localhost:8080/v1/objects/{collection_name}/{object_id}",
+                    f"{get_config().services.weaviate_base_url}/objects/{collection_name}/{object_id}",
                     timeout=5.0
                 )
                 

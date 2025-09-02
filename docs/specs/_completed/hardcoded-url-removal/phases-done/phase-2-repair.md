@@ -88,7 +88,7 @@ uv run python -m elysiactl repair --dry-run
 ### Configuration Test
 ```bash
 # Test with custom Weaviate URL
-export WEAVIATE_URL="http://custom-host:8080"
+export WCD_URL="http://custom-host:8080"
 uv run python -m elysiactl repair --dry-run
 
 # Verify URL construction for different endpoints
@@ -116,7 +116,7 @@ uv run python -m elysiactl repair --collection-name TEST_COLLECTION --dry-run
 2. **Config Integration**: Import and usage of `get_config()` is correctly implemented
 3. **Endpoint Variety**: All different endpoint types (schema, objects, batch) use config URLs
 4. **String Formatting**: Proper f-string formatting for dynamic URLs with object IDs
-5. **Backward Compatibility**: Default behavior with `WEAVIATE_URL=http://localhost:8080` remains unchanged
+5. **Backward Compatibility**: Default behavior with `WCD_URL=http://localhost:8080` remains unchanged
 6. **Custom URL Support**: Tool works with different Weaviate URLs via environment variables
 7. **No Regression**: All repair functionality (delete, recreate, batch operations) continues to work
 8. **Clean Import**: Config import is properly placed and does not cause circular dependencies
@@ -128,7 +128,7 @@ uv run python -m elysiactl repair --collection-name TEST_COLLECTION --dry-run
    - Schema: `{base}/schema`
    - Objects: `{base}/objects/{id}`
    - Batch: `{base}/batch/objects`
-3. **Environment Variable Test**: Confirm tool respects `WEAVIATE_URL` environment variable
+3. **Environment Variable Test**: Confirm tool respects `WCD_URL` environment variable
 4. **Dry Run Test**: Ensure repair dry-run mode works with new URLs
 5. **HTTP Method Test**: Verify GET, POST, DELETE operations work with config URLs
 

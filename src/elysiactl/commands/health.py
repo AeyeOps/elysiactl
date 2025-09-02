@@ -278,7 +278,7 @@ async def _perform_cluster_verification(
             "  Create with proper replication factor=3\n"
             "  Include asyncEnabled=true for better performance\n\n"
             "• [cyan]To check cluster state:[/cyan]\n"
-            "  [dim]curl http://localhost:8080/v1/cluster/shards/<collection>[/dim]\n\n"
+            "  [dim]curl $WCD_URL/v1/cluster/shards/<collection>[/dim]\n\n"
             "• [cyan]For data recovery:[/cyan]\n"
             "  Look for backup files: [dim]*_backup.json, *_data_export_*.json[/dim]",
             title="Repair Guidance",

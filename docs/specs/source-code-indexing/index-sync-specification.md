@@ -41,12 +41,12 @@ Options:
 
 ### Input Formats
 
-**Smart Hybrid JSONL with I/O Optimization** (recommended):
+**Smart Hybrid JSONL with I/O Optimization** (mgit output):
 ```jsonl
-{"line": 1, "repo": "ServiceA", "op": "add", "path": "config.json", "content": "{\"api\": \"v2\"}", "size": 13, "mime": "application/json"}
-{"line": 2, "repo": "ServiceA", "op": "modify", "path": "src/auth.py", "content_base64": "aW1wb3J0IG9zCi4uLg==", "size": 45000, "mime": "text/x-python"}
-{"line": 3, "repo": "ServiceA", "op": "add", "path": "docs/manual.pdf", "content_ref": "/opt/pdi/Enterprise/ServiceA/docs/manual.pdf", "size": 5242880, "mime": "application/pdf", "skip_index": true}
-{"line": 4, "repo": "ServiceB", "op": "delete", "path": "old.py"}
+{"repo": "ServiceA", "op": "add", "path": "config.json", "content": "{\"api\": \"v2\"}", "size": 13, "mime": "application/json"}
+{"repo": "ServiceA", "op": "modify", "path": "src/auth.py", "content_base64": "aW1wb3J0IG9zCi4uLg==", "size": 45000, "mime": "text/x-python"}
+{"repo": "ServiceA", "op": "add", "path": "docs/manual.pdf", "content_ref": "/opt/pdi/Enterprise/ServiceA/docs/manual.pdf", "size": 5242880, "mime": "application/pdf", "skip_index": true}
+{"repo": "ServiceB", "op": "delete", "path": "old.py"}
 ```
 
 **Content Strategy by Size:**
@@ -60,6 +60,18 @@ Options:
 /opt/pdi/Enterprise/ServiceA/src/main.py
 /opt/pdi/Enterprise/ServiceA/src/utils.py
 /opt/pdi/Enterprise/ServiceB/config.yaml
+```
+
+**Line Number Handling:**
+
+mgit produces clean JSONL without line numbers. elysiactl adds line numbers during consumption for checkpoint tracking:
+
+```python
+# elysiactl adds line numbers as it reads the stream
+for line_number, line in enumerate(sys.stdin, 1):
+    data = json.loads(line)
+    data['line'] = line_number  # elysiactl adds for checkpoint tracking
+    process_change(data)
 ```
 
 ### Output Format
@@ -341,6 +353,11 @@ git diff --name-only HEAD~1 | \
   while read file; do
     echo "{\"path\": \"$file\", \"op\": \"modify\"}"
   done | elysiactl index sync --stdin
+  
+# elysiactl adds line numbers internally:
+# for line_number, line in enumerate(sys.stdin, 1):
+#     data = json.loads(line)
+#     data['line'] = line_number
 ```
 
 ### Week 2: Add Intelligence
@@ -357,7 +374,7 @@ git diff --name-only HEAD~1 | \
 
 ## Critical Design Decisions
 
-1. **Pure JSONL with in-band line numbers** - No magic prefixes that break parsers
+1. **Pure JSONL from mgit** - No magic prefixes that break parsers, elysiactl adds line numbers during consumption
 2. **Smart three-tier content strategy** - Optimize I/O by embedding small/medium files
    - 0-10KB: Plain text (no base64)
    - 10-100KB: Base64 (reduces I/O by 80%)

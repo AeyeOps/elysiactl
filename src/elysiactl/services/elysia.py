@@ -12,10 +12,9 @@ from ..utils.process import (
     is_process_running, kill_process, find_process_by_port, get_conda_env_path
 )
 from ..utils.display import show_progress, print_success, print_error
+from ..config import get_config
 
 ELYSIA_DIR = "/opt/elysia"
-ELYSIA_PORT = 8000
-HEALTH_ENDPOINT = f"http://localhost:{ELYSIA_PORT}/api/health"
 CONDA_ENV = "elysia"
 
 
@@ -24,8 +23,18 @@ class ElysiaService:
     
     def __init__(self):
         self.work_dir = ELYSIA_DIR
-        self.port = ELYSIA_PORT
+        self.port = get_config().services.elysia_port
         self.conda_env = CONDA_ENV
+    
+    @property
+    def health_endpoint(self) -> str:
+        """Get the health check endpoint URL."""
+        from urllib.parse import urlparse
+        config = get_config()
+        parsed = urlparse(config.services.elysia_url)
+        if not parsed.hostname:
+            raise ValueError(f"Cannot extract hostname from Elysia URL: {config.services.elysia_url}")
+        return f"{config.services.elysia_scheme}://{parsed.hostname}:{self.port}/api/health"
     
     def start(self) -> bool:
         """Start the Elysia service."""
@@ -168,7 +177,7 @@ class ElysiaService:
         try:
             start_time = time.time()
             with httpx.Client(timeout=5.0) as client:
-                response = client.get(HEALTH_ENDPOINT)
+                response = client.get(self.health_endpoint)
                 response_time = (time.time() - start_time) * 1000
                 
                 health_data["response_time"] = response_time
@@ -188,7 +197,7 @@ class ElysiaService:
         """Simple health check."""
         try:
             with httpx.Client(timeout=5.0) as client:
-                response = client.get(HEALTH_ENDPOINT)
+                response = client.get(self.health_endpoint)
                 return response.status_code == 200
         except:
             return False

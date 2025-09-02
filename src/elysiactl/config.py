@@ -13,8 +13,21 @@ Future phases will layer config files and command generalization on this base.
 """
 
 import os
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass, field
+
+
+def _require_env(var_name: str, fallback_var: Optional[str] = None) -> str:
+    """Require an environment variable or raise an error."""
+    value = os.getenv(var_name)
+    if value:
+        return value
+    if fallback_var:
+        value = os.getenv(fallback_var)
+        if value:
+            return value
+        raise ValueError(f"{var_name} or {fallback_var} environment variable must be set")
+    raise ValueError(f"{var_name} environment variable must be set")
 
 
 @dataclass
@@ -22,17 +35,76 @@ class ServiceConfig:
     """Configuration for service endpoints and connections."""
     
     # Weaviate service configuration
-    weaviate_url: str = field(default_factory=lambda: os.getenv("WEAVIATE_URL", "http://localhost:8080"))
+    # Check WCD_URL first (what elysia uses), then WEAVIATE_URL as fallback
+    WCD_URL: str = field(default_factory=lambda: _require_env("WCD_URL", "WEAVIATE_URL"))
     weaviate_api_version: str = field(default_factory=lambda: os.getenv("WEAVIATE_API_VERSION", "v1"))
     
     # Elysia service configuration  
-    elysia_url: str = field(default_factory=lambda: os.getenv("ELYSIA_URL", "http://localhost:8000"))
+    elysia_url: str = field(default_factory=lambda: _require_env("ELYSIA_URL"))
     elysia_api_version: str = field(default_factory=lambda: os.getenv("ELYSIA_API_VERSION", "v1"))
     
     @property
     def weaviate_base_url(self) -> str:
         """Get the base Weaviate API URL."""
-        return f"{self.weaviate_url}/{self.weaviate_api_version}"
+        return f"{self.WCD_URL}/{self.weaviate_api_version}"
+    
+    @property
+    def weaviate_scheme(self) -> str:
+        """Extract scheme from Weaviate URL."""
+        from urllib.parse import urlparse
+        parsed = urlparse(self.WCD_URL)
+        if not parsed.scheme:
+            raise ValueError(f"Cannot extract scheme from Weaviate URL: {self.WCD_URL}")
+        return parsed.scheme
+    
+    @property
+    def weaviate_hostname(self) -> str:
+        """Extract hostname from Weaviate URL."""
+        from urllib.parse import urlparse
+        parsed = urlparse(self.WCD_URL)
+        if not parsed.hostname:
+            raise ValueError(f"Cannot extract hostname from Weaviate URL: {self.WCD_URL}")
+        return parsed.hostname
+    
+    @property
+    def weaviate_port(self) -> int:
+        """Extract port from Weaviate URL."""
+        from urllib.parse import urlparse
+        parsed = urlparse(self.WCD_URL)
+        if not parsed.port:
+            raise ValueError(f"Port not specified in Weaviate URL: {self.WCD_URL}. URL must include port (e.g., http://host:8080)")
+        return parsed.port
+    
+    @property
+    def elysia_scheme(self) -> str:
+        """Extract scheme from Elysia URL."""
+        from urllib.parse import urlparse
+        parsed = urlparse(self.elysia_url)
+        if not parsed.scheme:
+            raise ValueError(f"Cannot extract scheme from Elysia URL: {self.elysia_url}")
+        return parsed.scheme
+    
+    @property
+    def elysia_port(self) -> int:
+        """Extract port from Elysia URL."""
+        from urllib.parse import urlparse
+        parsed = urlparse(self.elysia_url)
+        if not parsed.port:
+            raise ValueError(f"Port not specified in Elysia URL: {self.elysia_url}. URL must include port (e.g., http://host:8000)")
+        return parsed.port
+    
+    @property
+    def weaviate_cluster_ports(self) -> List[int]:
+        """Get configured Weaviate cluster ports."""
+        # Require explicit configuration - no guessing
+        ports_str = os.getenv("WEAVIATE_CLUSTER_PORTS", "")
+        if not ports_str:
+            raise ValueError("WEAVIATE_CLUSTER_PORTS environment variable must be set (e.g., '8080' or '8080,8081,8082')")
+        
+        try:
+            return [int(p.strip()) for p in ports_str.split(",")]
+        except ValueError as e:
+            raise ValueError(f"Invalid WEAVIATE_CLUSTER_PORTS format: {ports_str}. Must be comma-separated integers.") from e
 
 
 @dataclass  
@@ -53,6 +125,59 @@ class ProcessingConfig:
     
     # Process timeouts
     process_timeout: int = field(default_factory=lambda: int(os.getenv("elysiactl_PROCESS_TIMEOUT", "5")))
+    
+    # Checkpoint system settings
+    checkpoint_db_dir: str = field(default_factory=lambda: os.getenv("elysiactl_CHECKPOINT_DB_DIR", "/tmp/elysiactl"))
+    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_RETRY_ATTEMPTS", "3")))
+    checkpoint_cleanup_days: int = field(default_factory=lambda: int(os.getenv("elysiactl_CHECKPOINT_CLEANUP_DAYS", "7")))
+    sqlite_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_SQLITE_TIMEOUT", "30.0")))
+    
+    # mgit tier thresholds (for analysis compatibility)
+    mgit_tier_1_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_1_MAX", "10000")))      # 10KB
+    mgit_tier_2_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_2_MAX", "100000")))    # 100KB  
+    mgit_tier_3_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_3_MAX", "10000000")))  # 10MB
+    
+    # Content analysis settings
+    use_mime_detection: bool = field(default_factory=lambda: os.getenv("elysiactl_USE_MIME_DETECTION", "true").lower() == "true")
+    analyze_vendor_dirs: bool = field(default_factory=lambda: os.getenv("elysiactl_ANALYZE_VENDOR_DIRS", "true").lower() == "true")
+    
+    # Content resolution timeouts
+    file_read_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_FILE_READ_TIMEOUT", "30.0")))
+    base64_decode_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_BASE64_TIMEOUT", "10.0")))
+    
+    # Custom patterns (comma-separated)
+    custom_skip_paths: str = field(default_factory=lambda: os.getenv("elysiactl_CUSTOM_SKIP_PATHS", ""))
+    custom_binary_extensions: str = field(default_factory=lambda: os.getenv("elysiactl_CUSTOM_BINARY_EXTENSIONS", ""))
+    
+    # Error handling configuration
+    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_RETRY_ATTEMPTS", "3")))
+    retry_base_delay: float = field(default_factory=lambda: float(os.getenv("elysiactl_RETRY_BASE_DELAY", "1.0")))
+    retry_max_delay: float = field(default_factory=lambda: float(os.getenv("elysiactl_RETRY_MAX_DELAY", "60.0")))
+    
+    # Circuit breaker settings
+    circuit_breaker_failure_threshold: int = field(default_factory=lambda: int(os.getenv("elysiactl_CB_FAILURE_THRESHOLD", "5")))
+    circuit_breaker_recovery_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_CB_RECOVERY_TIMEOUT", "30.0")))
+    
+    # Error tracking
+    error_history_limit: int = field(default_factory=lambda: int(os.getenv("elysiactl_ERROR_HISTORY_LIMIT", "100")))
+    log_level: str = field(default_factory=lambda: os.getenv("elysiactl_LOG_LEVEL", "INFO"))
+    
+    # Performance optimization settings
+    max_workers: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_WORKERS", "8")))
+    max_connections: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_CONNECTIONS", "20")))
+    connection_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_CONNECTION_TIMEOUT", "30.0")))
+    
+    # Memory management
+    memory_limit_mb: int = field(default_factory=lambda: int(os.getenv("elysiactl_MEMORY_LIMIT_MB", "512")))
+    streaming_buffer_size: int = field(default_factory=lambda: int(os.getenv("elysiactl_STREAMING_BUFFER_SIZE", "1000")))
+    
+    # Batch optimization
+    enable_batch_operations: bool = field(default_factory=lambda: os.getenv("elysiactl_ENABLE_BATCH_OPERATIONS", "true").lower() == "true")
+    batch_flush_interval: float = field(default_factory=lambda: float(os.getenv("elysiactl_BATCH_FLUSH_INTERVAL", "5.0")))
+    
+    # Performance monitoring
+    enable_metrics: bool = field(default_factory=lambda: os.getenv("elysiactl_ENABLE_METRICS", "true").lower() == "true")
+    metrics_interval: float = field(default_factory=lambda: float(os.getenv("elysiactl_METRICS_INTERVAL", "10.0")))
 
 
 @dataclass
@@ -127,9 +252,9 @@ def reload_config() -> elysiactlConfig:
 
 
 # Convenience functions for common access patterns
-def weaviate_url() -> str:
+def WCD_URL() -> str:
     """Get the Weaviate base URL."""
-    return get_config().services.weaviate_url
+    return get_config().services.WCD_URL
 
 
 def weaviate_api_url() -> str:
@@ -152,14 +277,3 @@ def enterprise_dir() -> str:
     return get_config().repositories.enterprise_dir
 
 
-# URL replacement functions for backward compatibility during Phase 2 transition
-def replace_localhost_url(url: str) -> str:
-    """Replace hardcoded localhost:8080 URLs with configured Weaviate URL.
-    
-    This is a transitional function for Phase 2 to enable quick configuration
-    updates without full command rewrites. Future phases should use direct
-    config access.
-    """
-    if "localhost:8080" in url:
-        return url.replace("http://localhost:8080/v1", weaviate_api_url())
-    return url

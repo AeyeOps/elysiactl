@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from ..services.weaviate import WeaviateService
+from ..config import get_config
 
 console = Console()
 app = typer.Typer(
@@ -129,7 +130,7 @@ def config_replication(
     # Step 1: Export current schema
     console.print("\n[bold]Step 1/6: Exporting current schema...[/bold]")
     try:
-        response = httpx.get(f"http://localhost:8080/v1/schema/{collection}")
+        response = httpx.get(f"{get_config().services.weaviate_base_url}/schema/{collection}")
         response.raise_for_status()
         schema = response.json()
         console.print(f"[green]✓[/green] Exported {collection} schema")
@@ -148,7 +149,7 @@ def config_replication(
     console.print("\n[bold]Step 2/6: Checking for existing data...[/bold]")
     try:
         check_response = httpx.post(
-            "http://localhost:8080/v1/graphql",
+            f"{get_config().services.weaviate_base_url}/graphql",
             json={
                 "query": f"""
                 {{
@@ -216,7 +217,7 @@ def config_replication(
                         """
                         
                         export_response = httpx.post(
-                            "http://localhost:8080/v1/graphql",
+                            f"{get_config().services.weaviate_base_url}/graphql",
                             json={"query": query},
                             timeout=60.0
                         )
@@ -244,7 +245,7 @@ def config_replication(
                         for obj in objects:
                             obj_id = obj["_additional"]["id"]
                             delete_obj_response = httpx.delete(
-                                f"http://localhost:8080/v1/objects/{collection}/{obj_id}"
+                                f"{get_config().services.weaviate_base_url}/objects/{collection}/{obj_id}"
                             )
                             # Ignore individual delete errors, we'll recreate the collection anyway
                         
@@ -267,7 +268,7 @@ def config_replication(
     # Step 3: Delete existing collection
     console.print("\n[bold]Step 3/6: Deleting misconfigured collection...[/bold]")
     try:
-        delete_response = httpx.delete(f"http://localhost:8080/v1/schema/{collection}")
+        delete_response = httpx.delete(f"{get_config().services.weaviate_base_url}/schema/{collection}")
         delete_response.raise_for_status()
         console.print(f"[green]✓[/green] Deleted existing {collection} collection")
     except httpx.HTTPError as e:
@@ -285,7 +286,7 @@ def config_replication(
     console.print("\n[bold]Step 5/6: Recreating collection with proper replication...[/bold]")
     try:
         create_response = httpx.post(
-            "http://localhost:8080/v1/schema",
+            f"{get_config().services.weaviate_base_url}/schema",
             json=schema,
             timeout=30.0
         )
@@ -305,7 +306,7 @@ def config_replication(
         try:
             # Insert test record using correct endpoint
             trigger_response = httpx.post(
-                "http://localhost:8080/v1/objects",
+                f"{get_config().services.weaviate_base_url}/objects",
                 json=test_data,
                 timeout=5.0
             )
@@ -319,7 +320,7 @@ def config_replication(
                 
                 # Delete test record
                 if object_id:
-                    httpx.delete(f"http://localhost:8080/v1/objects/{collection}/{object_id}")
+                    httpx.delete(f"{get_config().services.weaviate_base_url}/objects/{collection}/{object_id}")
                 
                 console.print("[green]✓[/green] Schema replication triggered")
         except httpx.HTTPError:
@@ -336,9 +337,11 @@ def config_replication(
     # Step 6: Verify replication
     console.print("\n[bold]Step 6/6: Verifying replication across nodes...[/bold]")
     nodes_with_collection = []
-    for port in [8080, 8081, 8082]:
+    config = get_config()
+    hostname = config.services.weaviate_hostname
+    for port in config.services.weaviate_cluster_ports:
         try:
-            verify_response = httpx.get(f"http://localhost:{port}/v1/schema/{collection}")
+            verify_response = httpx.get(f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/schema/{collection}")
             if verify_response.status_code == 200:
                 nodes_with_collection.append(port)
                 console.print(f"  [green]✓[/green] Node {port}: Collection present")

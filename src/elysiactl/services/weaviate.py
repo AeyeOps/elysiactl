@@ -9,18 +9,31 @@ import json
 
 from ..utils.process import run_command, find_process_by_port, get_docker_container_pid
 from ..utils.display import show_progress, print_success, print_error
+from ..config import get_config
 
 WEAVIATE_DIR = "/opt/weaviate"
-WEAVIATE_PORT = 8080
-HEALTH_ENDPOINT = f"http://localhost:{WEAVIATE_PORT}/v1/nodes"
 
 
 class WeaviateService:
     """Manages Weaviate cluster via docker-compose."""
     
-    def __init__(self):
+    def __init__(self, base_url: str = None):
         self.work_dir = WEAVIATE_DIR
-        self.port = WEAVIATE_PORT
+        config = get_config()
+        
+        # If base_url is provided, use it (for sync compatibility)
+        if base_url:
+            self.base_url = base_url
+        else:
+            self.base_url = config.services.weaviate_base_url
+            
+        self.port = config.services.weaviate_port
+    
+    @property
+    def health_endpoint(self) -> str:
+        """Get the health check endpoint URL."""
+        config = get_config()
+        return f"{config.services.weaviate_scheme}://{config.services.weaviate_hostname}:{self.port}/v1/nodes"
     
     def start(self) -> bool:
         """Start the Weaviate cluster."""
@@ -76,7 +89,8 @@ class WeaviateService:
     def is_running(self) -> bool:
         """Check if Weaviate cluster is running (check all 3 nodes)."""
         # Check all three ports to see if cluster is running
-        for port in [8080, 8081, 8082]:
+        ports = get_config().services.weaviate_cluster_ports
+        for port in ports:
             if find_process_by_port(port) is not None:
                 return True
         return False
@@ -93,20 +107,24 @@ class WeaviateService:
         # Use first running node's PID for display
         running_pid = running_nodes[0]["pid"] if running_nodes else None
         
+        # Format port display for multi-node cluster
+        ports = get_config().services.weaviate_cluster_ports
+        port_display = f"{ports[0]}" if len(ports) == 1 else f"{ports[0]} (+{',+'.join(str(p-ports[0]) for p in ports[1:])})"
+        
         return {
             "status": "running" if is_cluster_running else "stopped",
             "pid": running_pid or "N/A",
-            "port": f"{self.port} (+8081,+8082)" if is_cluster_running else self.port,
+            "port": port_display if is_cluster_running else self.port,
             "health": "healthy" if self._check_health() else "unhealthy" if is_cluster_running else "unknown"
         }
     
     def get_nodes_status(self) -> list[Dict[str, Any]]:
         """Get status for each individual Weaviate node."""
         nodes = []
+        ports = get_config().services.weaviate_cluster_ports
         node_configs = [
-            {"name": "Weaviate-1", "port": 8080, "container": "weaviate-node1-1"},
-            {"name": "Weaviate-2", "port": 8081, "container": "weaviate-node2-1"},
-            {"name": "Weaviate-3", "port": 8082, "container": "weaviate-node3-1"},
+            {"name": f"Weaviate-{i+1}", "port": ports[i], "container": f"weaviate-node{i+1}-1"}
+            for i in range(len(ports))
         ]
         
         for config in node_configs:
@@ -167,7 +185,7 @@ class WeaviateService:
         try:
             start_time = time.time()
             with httpx.Client(timeout=5.0) as client:
-                response = client.get(HEALTH_ENDPOINT)
+                response = client.get(self.health_endpoint)
                 response_time = (time.time() - start_time) * 1000
                 
                 health_data["response_time"] = response_time
@@ -191,7 +209,7 @@ class WeaviateService:
         """Simple health check."""
         try:
             with httpx.Client(timeout=5.0) as client:
-                response = client.get(HEALTH_ENDPOINT)
+                response = client.get(self.health_endpoint)
                 return response.status_code == 200
         except:
             return False
@@ -208,7 +226,8 @@ class WeaviateService:
     def _check_all_nodes(self) -> List[Dict[str, Any]]:
         """Check health of all three Weaviate nodes."""
         nodes = []
-        for port in [8080, 8081, 8082]:
+        ports = get_config().services.weaviate_cluster_ports
+        for port in ports:
             node_health = self._check_node(port)
             nodes.append(node_health)
         return nodes
@@ -225,7 +244,9 @@ class WeaviateService:
         try:
             start_time = time.time()
             with httpx.Client(timeout=3.0) as client:
-                response = client.get(f"http://localhost:{port}/v1/nodes")
+                config = get_config()
+                hostname = config.services.weaviate_hostname
+                response = client.get(f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/nodes")
                 response_time = (time.time() - start_time) * 1000
                 
                 node_health["response_time"] = response_time
@@ -254,7 +275,9 @@ class WeaviateService:
         try:
             # Check collection existence and replication on main node
             with httpx.Client(timeout=5.0) as client:
-                response = client.get(f"http://localhost:{WEAVIATE_PORT}/v1/schema/ELYSIA_CONFIG__")
+                config = get_config()
+                hostname = config.services.weaviate_hostname
+                response = client.get(f"{config.services.weaviate_scheme}://{hostname}:{self.port}/v1/schema/ELYSIA_CONFIG__")
                 
                 if response.status_code == 200:
                     collection_status["exists"] = True
@@ -265,9 +288,11 @@ class WeaviateService:
                         pass
                 
                 # Count collections per node
-                for port in [8080, 8081, 8082]:
+                ports = get_config().services.weaviate_cluster_ports
+                for port in ports:
                     try:
-                        node_response = client.get(f"http://localhost:{port}/v1/schema")
+                        hostname = config.services.weaviate_hostname
+                        node_response = client.get(f"{config.services.weaviate_scheme}://{hostname}:{port}/v1/schema")
                         if node_response.status_code == 200:
                             schema_data = node_response.json()
                             classes = schema_data.get("classes", [])
@@ -364,8 +389,9 @@ class WeaviateService:
             if result.returncode == 0:
                 lines = result.stdout.split('\n')
                 connection_count = 0
+                ports = get_config().services.weaviate_cluster_ports
                 for line in lines:
-                    if any(f":808{i}" in line for i in [0, 1, 2]) and "ESTABLISHED" in line:
+                    if any(f":{port}" in line for port in ports) and "ESTABLISHED" in line:
                         connection_count += 1
                 return connection_count
                 
@@ -373,3 +399,38 @@ class WeaviateService:
             pass
         
         return None
+    
+    async def delete_object(self, object_id: str) -> bool:
+        """Delete an object from Weaviate."""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(f"{self.base_url}/objects/{object_id}")
+                return response.status_code in [200, 204, 404]  # 404 is OK for delete
+        except Exception:
+            return False
+    
+    async def batch_insert_objects(self, collection: str, objects: List[Dict[str, Any]]) -> bool:
+        """Batch insert objects into Weaviate."""
+        if not objects:
+            return True
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                batch_request = {
+                    "objects": [
+                        {
+                            "class": collection,
+                            "properties": obj.get("properties", obj),
+                            "id": obj.get("id")
+                        }
+                        for obj in objects
+                    ]
+                }
+                
+                response = await client.post(
+                    f"{self.base_url}/batch/objects",
+                    json=batch_request
+                )
+                return response.status_code in [200, 201]
+        except Exception:
+            return False

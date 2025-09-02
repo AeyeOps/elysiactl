@@ -3,9 +3,10 @@
 import os
 import asyncio
 import hashlib
+import subprocess
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Annotated
 import json
 
 import typer
@@ -17,8 +18,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich import box
 
 from ..config import get_config
-from ..services.sync import StreamSync
-from ..services.sync import StreamSync
+from ..services.performance import get_performance_optimizer
+from ..services.sync import sync_files_from_stdin, SQLiteCheckpointManager, _resolve_content, parse_input_line, sync_files_from_stdin_async
+from ..services.error_handling import get_error_handler_with_config
 
 app = typer.Typer(help="Index source code into Weaviate collections")
 console = Console()
@@ -574,20 +576,25 @@ async def index_enterprise_async(repos: List[Path], collection_name: str, clear:
 
 @app.command()
 def sync(
-    stdin: bool = typer.Option(True, "--stdin", help="Read file changes from standard input"),
-    collection: Optional[str] = typer.Option(None, "--collection", help="Collection name to use"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be changed without modifying Weaviate"),
-    verbose: bool = typer.Option(False, "--verbose", help="Show detailed progress for each file"),
+    stdin: Annotated[bool, typer.Option("--stdin", help="Read file paths from standard input")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be changed without modifying Weaviate")] = False,
+    collection: Annotated[Optional[str], typer.Option("--collection", help="Target collection name")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show detailed progress for each file")] = False,
+    # Performance options
+    parallel: Annotated[bool, typer.Option("--parallel", help="Enable parallel processing")] = True,
+    workers: Annotated[int, typer.Option("--workers", help="Number of parallel workers")] = 8,
+    batch_size: Annotated[int, typer.Option("--batch-size", help="Batch size for processing")] = None,
+    no_optimize: Annotated[bool, typer.Option("--no-optimize", help="Disable performance optimizations")] = False,
 ):
     """Sync file changes from stdin to Weaviate collection.
     
     Reads JSONL formatted changes from stdin and updates the Weaviate collection.
     Supports three content formats: content, content_base64, content_ref.
     """
-    asyncio.run(sync_changes_async(stdin, collection, dry_run, verbose))
+    asyncio.run(sync_changes_async(stdin, collection, dry_run, verbose, parallel, workers, batch_size, no_optimize))
 
 
-async def sync_changes_async(use_stdin: bool, collection_name: Optional[str], dry_run: bool, verbose: bool):
+async def sync_changes_async(use_stdin: bool, collection_name: Optional[str], dry_run: bool, verbose: bool, parallel: bool, workers: int, batch_size: Optional[int], no_optimize: bool):
     """Async function to sync changes from stdin to Weaviate."""
     config = get_config()
     if collection_name is None:
@@ -598,39 +605,156 @@ async def sync_changes_async(use_stdin: bool, collection_name: Optional[str], dr
         console.print("[red]Failed to ensure collection schema[/red]")
         raise typer.Exit(1)
     
-    # Initialize sync service
-    sync_service = StreamSync(collection_name, dry_run, verbose)
-    
-    # Process stdin stream
-    await sync_service.process_stdin()
+    # Use the async sync function directly
+    return await sync_files_from_stdin_async(
+        collection=collection_name,
+        dry_run=dry_run,
+        verbose=verbose,
+        use_stdin=use_stdin,
+        batch_size=batch_size,
+        parallel=parallel and not no_optimize,
+        max_workers=workers
+    )
 
 
 @app.command()
-def sync(
-    stdin: bool = typer.Option(True, "--stdin", help="Read file changes from standard input"),
-    collection: Optional[str] = typer.Option(None, "--collection", help="Collection name to use"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be changed without modifying Weaviate"),
-    verbose: bool = typer.Option(False, "--verbose", help="Show detailed progress for each file"),
+def errors(
+    recent: Annotated[int, typer.Option("--recent", help="Show N recent errors")] = 10,
+    summary: Annotated[bool, typer.Option("--summary", help="Show error summary statistics")] = False,
+    reset: Annotated[bool, typer.Option("--reset", help="Reset error statistics")] = False,
 ):
-    """Sync file changes from stdin to Weaviate collection.
+    """Show error statistics and recent failures."""
+    from ..services.error_handling import get_error_handler
+    from rich.table import Table
     
-    Reads JSONL formatted changes from stdin and updates the Weaviate collection.
-    Supports three content formats: content, content_base64, content_ref.
-    """
-    asyncio.run(sync_changes_async(stdin, collection, dry_run, verbose))
+    error_handler = get_error_handler()
+    
+    if reset:
+        error_handler.reset_statistics()
+        console.print("[green]Error statistics reset[/green]")
+        return
+    
+    if summary:
+        summary_data = error_handler.get_error_summary()
+        
+        console.print(f"\n[bold]Error Summary:[/bold]")
+        console.print(f"  Total errors: {summary_data['total_errors']}")
+        
+        if summary_data['error_counts']:
+            table = Table(title="Error Categories")
+            table.add_column("Category", style="cyan")
+            table.add_column("Count", style="red", justify="right")
+            
+            sorted_errors = sorted(
+                summary_data['error_counts'].items(), 
+                key=lambda x: x[1], 
+                reverse=True
+            )
+            
+            for category, count in sorted_errors:
+                table.add_row(category, str(count))
+            
+            console.print(table)
+        
+        # Circuit breaker status
+        cb_states = summary_data['circuit_breaker_states']
+        if cb_states:
+            console.print(f"\n[bold]Circuit Breaker Status:[/bold]")
+            for operation, status in cb_states.items():
+                state_color = "green" if status['state'] == 'closed' else "red"
+                console.print(f"  {operation}: [{state_color}]{status['state']}[/{state_color}] ({status['failures']} failures)")
+    
+    # Show recent errors
+    recent_errors = error_handler.get_recent_errors(recent)
+    if recent_errors:
+        table = Table(title=f"Recent Errors (last {len(recent_errors)})")
+        table.add_column("Time", style="dim")
+        table.add_column("Operation", style="cyan") 
+        table.add_column("File", style="yellow")
+        table.add_column("Severity", style="red")
+        table.add_column("Message", style="white")
+        
+        for error in recent_errors:
+            time_str = error['timestamp'].split('T')[1][:8]  # HH:MM:SS
+            file_path = error['file_path'] or ''
+            if file_path and len(file_path) > 30:
+                file_path = '...' + file_path[-27:]
+            
+            table.add_row(
+                time_str,
+                error['operation'],
+                file_path,
+                error['severity'],
+                error['error_message'][:50] + ('...' if len(error['error_message']) > 50 else '')
+            )
+        
+        console.print(table)
+    else:
+        console.print("[green]No recent errors[/green]")
 
 
 @app.command()
 def status(
-    collection: Optional[str] = typer.Option(None, "--collection", help="Collection name to check"),
-    json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
+    run_id: Optional[str] = typer.Option(None, "--run-id", help="Show status for specific run"),
+    summary: bool = typer.Option(False, "--summary", help="Show summary of all runs"),
+    failed: bool = typer.Option(False, "--failed", help="Show failed items from last run"),
+    collection: Optional[str] = typer.Option(None, "--collection", help="Collection name to check (legacy)"),
+    json_output: bool = typer.Option(False, "--json", help="Output in JSON format (legacy)"),
 ):
-    """Check the status of indexed source code collections."""
-    asyncio.run(check_status_async(collection, json_output))
+    """Show sync status and checkpoint information."""
+    # Handle legacy collection status if requested
+    if collection or json_output:
+        asyncio.run(check_collection_status_async(collection, json_output))
+        return
+    
+    checkpoint = SQLiteCheckpointManager()
+    
+    if summary:
+        # Show overall summary
+        summary_data = checkpoint.get_summary()
+        console.print("\n[bold]Sync Summary:[/bold]")
+        console.print(f"  Total runs: {summary_data['total_runs'] or 0}")
+        console.print(f"  Active runs: {summary_data['active_runs'] or 0}")
+        console.print(f"  Completed runs: {summary_data['completed_runs'] or 0}")
+        console.print(f"  Total success: {summary_data['total_success'] or 0}")
+        console.print(f"  Total errors: {summary_data['total_errors'] or 0}")
+        console.print(f"  Last run: {summary_data['last_run'] or 'Never'}")
+        return
+    
+    # Get target run ID
+    if not run_id:
+        run_id = checkpoint.get_active_run()
+        if not run_id:
+            console.print("[yellow]No active runs found[/yellow]")
+            console.print("[dim]Use --summary to see all runs or start a new sync[/dim]")
+            return
+    
+    # Show run status
+    status_data = checkpoint.get_run_status(run_id)
+    if not status_data:
+        console.print(f"[red]Run {run_id} not found[/red]")
+        return
+    
+    console.print(f"\n[bold]Run {run_id}:[/bold]")
+    console.print(f"  Collection: {status_data['collection_name']}")
+    console.print(f"  Started: {status_data['started_at']}")
+    console.print(f"  Status: {status_data['status']}")
+    console.print(f"  Processed: {status_data['processed_lines']}")
+    console.print(f"  Success: {status_data['success_count']}")
+    console.print(f"  Errors: {status_data['error_count']}")
+    
+    if failed:
+        failed_lines = checkpoint.get_failed_lines(run_id)
+        if failed_lines:
+            console.print(f"\n[red]Failed items ({len(failed_lines)}):[/red]")
+            for failed_line in failed_lines[:10]:  # Show first 10
+                console.print(f"  Line {failed_line['line_number']}: {failed_line['file_path']} - {failed_line['error_message']}")
+            if len(failed_lines) > 10:
+                console.print(f"  ... and {len(failed_lines) - 10} more")
 
 
-async def check_status_async(collection_name: Optional[str], json_output: bool):
-    """Check status of the source code collection."""
+async def check_collection_status_async(collection_name: Optional[str], json_output: bool):
+    """Legacy function to check status of the source code collection."""
     config = get_config()
     if collection_name is None:
         collection_name = config.collections.default_source_collection
@@ -702,6 +826,320 @@ async def check_status_async(collection_name: Optional[str], json_output: bool):
                 console.print(json.dumps({"error": str(e)}))
             else:
                 console.print(f"[red]✗ Error checking status: {e}[/red]")
+
+
+@app.command()
+def analyze(
+    paths: List[str],
+    summary: bool = typer.Option(False, "--summary", help="Show predicted strategy statistics"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed analysis per file"),
+):
+    """Analyze local files and predict mgit's content strategy."""
+    from rich.table import Table
+    
+    resolver = ContentResolver()
+    
+    if summary:
+        stats = resolver.get_strategy_stats(paths)
+        
+        table = Table(title="Predicted mgit Content Strategy")
+        table.add_column("Strategy", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        table.add_column("Description", style="dim")
+        
+        table.add_row("Tier 1 (Plain)", str(stats['tier_1_plain']), "mgit would embed as plain text")
+        table.add_row("Tier 2 (Base64)", str(stats['tier_2_base64']), "mgit would embed as base64")  
+        table.add_row("Tier 3 (Reference)", str(stats['tier_3_reference']), "mgit would use file references")
+        table.add_row("Skipped (Binary)", str(stats['skipped_binary']), "mgit would skip binary files")
+        table.add_row("Skipped (Vendor)", str(stats['skipped_vendor']), "mgit would skip vendor dirs")
+        table.add_row("Skipped (Large)", str(stats['skipped_large']), "mgit would skip large files")
+        table.add_row("Errors", str(stats['errors']), "File access errors")
+        
+        console.print(table)
+        
+        total_files = sum(stats.values())
+        if total_files > 0:
+            indexed_files = stats['tier_1_plain'] + stats['tier_2_base64'] + stats['tier_3_reference']
+            embedded_files = stats['tier_1_plain'] + stats['tier_2_base64']
+            
+            console.print(f"\n[bold]Predicted mgit Behavior:[/bold]")
+            console.print(f"  Total files analyzed: {total_files}")
+            console.print(f"  Would be indexed: {indexed_files} ({indexed_files/total_files*100:.1f}%)")
+            console.print(f"  Content embedded: {embedded_files} ({embedded_files/total_files*100:.1f}%)")
+    
+    if verbose:
+        table = Table(title="Detailed File Analysis (Predicted mgit Strategy)")
+        table.add_column("File Path", style="cyan")
+        table.add_column("Size", style="green", justify="right")
+        table.add_column("Predicted Tier", style="yellow", justify="center")
+        table.add_column("MIME Type", style="blue")
+        table.add_column("Notes", style="dim")
+        
+        for file_path in paths:
+            analysis = resolver.analyze_file(file_path)
+            
+            size_str = f"{analysis.file_size:,}" if analysis.file_size > 0 else "N/A"
+            tier_name = {
+                0: "Error",
+                1: "Plain", 
+                2: "Base64",
+                3: "Ref"
+            }.get(analysis.predicted_tier, "Unknown")
+            
+            notes = analysis.skip_reason if analysis.is_skippable else f"Binary: {analysis.is_binary}"
+            
+            table.add_row(file_path, size_str, tier_name, analysis.mime_type, notes)
+        
+        console.print(table)
+
+
+@app.command() 
+def inspect(
+    jsonl_file: str,
+    show_stats: bool = typer.Option(False, "--stats", help="Show content strategy statistics"),
+    show_content: bool = typer.Option(False, "--content", help="Show actual resolved content"),
+):
+    """Inspect mgit JSONL output and analyze content strategies."""
+    from rich.table import Table
+    
+    resolver = ContentResolver()
+    
+    strategy_counts = {1: 0, 2: 0, 3: 0, 'skipped': 0, 'errors': 0}
+    total_size = {'embedded': 0, 'references': 0}
+    
+    try:
+        with open(jsonl_file, 'r') as f:
+            for line_num, line in enumerate(f, 1):
+                change = parse_input_line(line, line_num)
+                if not change:
+                    continue
+                
+                # Classify the change object
+                if change.get('skip_index'):
+                    strategy_counts['skipped'] += 1
+                elif 'content' in change:
+                    strategy_counts[1] += 1
+                    total_size['embedded'] += len(change['content'])
+                elif 'content_base64' in change:
+                    strategy_counts[2] += 1 
+                    total_size['embedded'] += len(change['content_base64'])
+                elif 'content_ref' in change:
+                    strategy_counts[3] += 1
+                    total_size['references'] += 1
+                else:
+                    strategy_counts['errors'] += 1
+                
+                if show_content and line_num <= 10:  # Show first 10 for brevity
+                    content = _resolve_content(change)
+                    console.print(f"\n[bold]Line {line_num}:[/bold] {change.get('path', 'unknown')}")
+                    if content:
+                        preview = content[:200] + "..." if len(content) > 200 else content
+                        console.print(f"  Content: {preview}")
+                    else:
+                        console.print("  [red]No content resolved[/red]")
+        
+        if show_stats:
+            table = Table(title=f"mgit JSONL Analysis: {jsonl_file}")
+            table.add_column("Strategy", style="cyan")
+            table.add_column("Count", style="green", justify="right")
+            table.add_column("Description", style="dim")
+            
+            table.add_row("Tier 1 (Plain)", str(strategy_counts[1]), "Plain text embedded")
+            table.add_row("Tier 2 (Base64)", str(strategy_counts[2]), "Base64 encoded content")
+            table.add_row("Tier 3 (Reference)", str(strategy_counts[3]), "File references")
+            table.add_row("Skipped", str(strategy_counts['skipped']), "Marked for skipping")
+            table.add_row("Errors", str(strategy_counts['errors']), "Parse errors")
+            
+            console.print(table)
+            
+            total_changes = sum(strategy_counts.values())
+            if total_changes > 0:
+                embedded_count = strategy_counts[1] + strategy_counts[2]
+                
+                console.print(f"\n[bold]Summary:[/bold]")
+                console.print(f"  Total changes: {total_changes}")
+                console.print(f"  Content embedded: {embedded_count} ({embedded_count/total_changes*100:.1f}%)")
+                console.print(f"  Embedded size: {total_size['embedded']:,} chars")
+                console.print(f"  File references: {total_size['references']}")
+    
+    except Exception as e:
+        console.print(f"[red]Failed to analyze {jsonl_file}: {e}[/red]")
+
+
+@app.command()
+def errors(
+    recent: Annotated[int, typer.Option("--recent", help="Show N recent errors")] = 10,
+    summary: Annotated[bool, typer.Option("--summary", help="Show error summary statistics")] = False,
+    reset: Annotated[bool, typer.Option("--reset", help="Reset error statistics")] = False,
+):
+    """Show error statistics and recent failures."""
+    from ..services.error_handling import get_error_handler_with_config
+    from rich.table import Table
+    
+    error_handler = get_error_handler_with_config()
+    
+    if reset:
+        error_handler.reset_statistics()
+        console.print("[green]Error statistics reset[/green]")
+        return
+    
+    if summary:
+        summary_data = error_handler.get_error_summary()
+        
+        console.print("\n[bold]Error Summary:[/bold]")
+        console.print(f"  Total errors: {summary_data['total_errors']}")
+        
+        if summary_data['error_counts']:
+            table = Table(title="Error Categories")
+            table.add_column("Category", style="cyan")
+            table.add_column("Count", style="red", justify="right")
+            
+            sorted_errors = sorted(
+                summary_data['error_counts'].items(), 
+                key=lambda x: x[1], 
+                reverse=True
+            )
+            
+            for category, count in sorted_errors:
+                table.add_column(category, style="cyan")
+                table.add_column(str(count), style="red", justify="right")
+            
+            console.print(table)
+        
+        # Circuit breaker status
+        cb_states = summary_data['circuit_breaker_states']
+        if cb_states:
+            console.print("\n[bold]Circuit Breaker Status:[/bold]")
+            for operation, status in cb_states.items():
+                state_color = "green" if status['state'] == 'closed' else "red"
+                console.print(f"  {operation}: [{state_color}]{status['state']}[/{state_color}] ({status['failures']} failures)")
+    
+    # Show recent errors
+    recent_errors = error_handler.get_recent_errors(recent)
+    if recent_errors:
+        table = Table(title=f"Recent Errors (last {len(recent_errors)})")
+        table.add_column("Time", style="dim")
+        table.add_column("Operation", style="cyan") 
+        table.add_column("File", style="yellow")
+        table.add_column("Severity", style="red")
+        table.add_column("Message", style="white")
+        
+        for error in recent_errors:
+            time_str = error['timestamp'].split('T')[1][:8]  # HH:MM:SS
+            file_path = error['file_path'] or ''
+            if file_path and len(file_path) > 30:
+                file_path = '...' + file_path[-27:]
+            
+            table.add_row(
+                time_str,
+                error['operation'],
+                file_path,
+                error['severity'],
+                error['error_message'][:50] + ('...' if len(error['error_message']) > 50 else '')
+            )
+        
+        console.print(table)
+    else:
+        console.print("[green]No recent errors[/green]")
+
+
+@app.command()
+def perf(
+    show_config: Annotated[bool, typer.Option("--config", help="Show performance configuration")] = False,
+    benchmark: Annotated[bool, typer.Option("--benchmark", help="Run performance benchmark")] = False,
+    workers: Annotated[int, typer.Option("--workers", help="Number of parallel workers")] = 8,
+    batch_size: Annotated[int, typer.Option("--batch-size", help="Batch size for processing")] = 100,
+):
+    """Performance monitoring and tuning commands."""
+    from ..services.performance import get_performance_optimizer
+    
+    if show_config:
+        config = get_performance_optimizer().get_performance_summary()
+        
+        console.print("\n[bold]Performance Configuration:[/bold]")
+        opt_config = config.get('optimization_config', {})
+        for key, value in opt_config.items():
+            console.print(f"  {key}: {value}")
+        
+        return
+    
+    if benchmark:
+        console.print("[yellow]Running performance benchmark...[/yellow]")
+        
+        # Create test files
+        import tempfile
+        import os
+        
+        test_files = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create test files of various sizes
+            for i in range(50):
+                file_path = os.path.join(temp_dir, f"test_{i}.py")
+                content_size = 1000 + (i * 100)  # Varying sizes
+                content = f"# Test file {i}\n" + ("def func():\n    pass\n" * (content_size // 20))
+                
+                with open(file_path, 'w') as f:
+                    f.write(content)
+                test_files.append(file_path)
+            
+            # Run benchmark
+            import time
+            start_time = time.time()
+            
+            # Test with different configurations
+            test_input = "\n".join(test_files)
+            
+            # Simulate sync
+            result = subprocess.run([
+                "uv", "run", "elysiactl", "index", "sync",
+                "--stdin", "--dry-run", "--parallel", f"--workers={workers}", f"--batch-size={batch_size}"
+            ], 
+            input=test_input, 
+            text=True, 
+            capture_output=True,
+            cwd=str(Path(__file__).parent.parent.parent)
+            )
+            
+            duration = time.time() - start_time
+            files_per_second = len(test_files) / duration
+            
+            console.print(f"\n[bold]Benchmark Results:[/bold]")
+            console.print(f"  Files processed: {len(test_files)}")
+            console.print(f"  Duration: {duration:.2f}s") 
+            console.print(f"  Files/second: {files_per_second:.1f}")
+            console.print(f"  Workers: {workers}")
+            console.print(f"  Batch size: {batch_size}")
+
+
+@app.command()
+def tune(
+    target_files: Annotated[int, typer.Option("--target-files", help="Target number of files to optimize for")] = 10000,
+    target_time: Annotated[int, typer.Option("--target-time", help="Target completion time in seconds")] = 300,
+):
+    """Auto-tune performance parameters for target workload."""
+    console.print(f"[blue]Auto-tuning for {target_files} files in {target_time}s...[/blue]")
+    
+    # Calculate optimal parameters
+    target_files_per_second = target_files / target_time
+    
+    # Estimate optimal worker count (rule of thumb: 2x CPU cores, max 16)
+    import os
+    cpu_count = os.cpu_count() or 4
+    optimal_workers = min(16, max(4, cpu_count * 2))
+    
+    # Estimate optimal batch size
+    optimal_batch_size = max(50, min(200, target_files // (optimal_workers * 10)))
+    
+    console.print(f"\n[bold]Recommended Configuration:[/bold]")
+    console.print(f"  Workers: {optimal_workers}")
+    console.print(f"  Batch size: {optimal_batch_size}")
+    console.print(f"  Expected throughput: {target_files_per_second:.1f} files/second")
+    
+    # Environment variable suggestions
+    console.print(f"\n[bold]Environment Variables:[/bold]")
+    console.print(f"  export elysiactl_MAX_WORKERS={optimal_workers}")
+    console.print(f"  export elysiactl_BATCH_SIZE={optimal_batch_size}")
+    console.print(f"  export elysiactl_MAX_CONNECTIONS=20")
 
 
 if __name__ == "__main__":

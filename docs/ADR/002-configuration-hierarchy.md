@@ -20,7 +20,7 @@ Implement a three-tier configuration hierarchy with clear precedence:
 3. **Configuration files** (lowest precedence)
 4. **Hardcoded defaults** (fallback only)
 
-Environment variables use the `elysiactl_` prefix for tool-specific settings and respect standard variables like `WEAVIATE_URL` for service locations.
+Environment variables use the `elysiactl_` prefix for tool-specific settings and respect standard variables like `WCD_URL` for service locations.
 
 ## Consequences
 
