@@ -1,9 +1,179 @@
-# Phase 3: Advanced Backup & Restore Features (Roadmap)
+## 🏗️ **Clean Architecture: Zero Dependencies**
 
-## Overview
-Phase 3 focuses on advanced features that enhance the core backup/restore functionality with enterprise-grade capabilities, better performance, and additional data formats.
+### **Dependency Rules**
+- ✅ **mgit**: Knows nothing about elysiactl
+- ✅ **elysiactl**: Knows nothing about mgit
+- ✅ **Both**: Know only the standardized JSONL format
+- ✅ **Integration**: Purely through file format contract
 
-## Planned Features
+### **Forbidden Dependencies**
+```python
+# ❌ NOT ALLOWED in elysiactl
+from mgit.commands.sync import SyncCommand  # No mgit imports
+from mgit.config import get_mgit_config()   # No mgit config
+from mgit.utils import mgit_specific_func() # No mgit utilities
+
+# ❌ NOT ALLOWED in mgit
+from elysiactl.index import IndexCommand    # No elysiactl imports
+from elysiactl.services import WeaviateService # No elysiactl services
+```
+
+## 📋 **elysiactl Implementation: Format-Only Consumer**
+
+### **Clean Command Interface**
+```bash
+# Generic file processing - no mgit knowledge
+elysiactl index process-jsonl /path/to/changes.jsonl --collection source-code
+
+# Or via stdin for any producer
+cat changes.jsonl | elysiactl index sync --stdin --collection source-code
+
+# Or watch directory for any producer's files
+elysiactl index watch /shared/pending/ --pattern "*.jsonl" --collection source-code
+```
+
+### **Format-Agnostic Processing**
+```python
+# src/elysiactl/commands/index.py
+def process_jsonl_file(file_path: Path, collection: str):
+    """Process any JSONL file with repo changes - producer agnostic."""
+    
+    with open(file_path, 'r') as f:
+        for line_num, line in enumerate(f, 1):
+            try:
+                change = json.loads(line.strip())
+                
+                # Validate format (not producer)
+                validate_change_format(change)
+                
+                # Process change (works with any producer)
+                process_repo_change(change, collection)
+                
+            except json.JSONDecodeError as e:
+                logger.warning(f"Line {line_num}: Invalid JSON - {e}")
+            except ValidationError as e:
+                logger.warning(f"Line {line_num}: Invalid format - {e}")
+            except Exception as e:
+                logger.error(f"Line {line_num}: Processing failed - {e}")
+
+def validate_change_format(change: dict):
+    """Validate standardized format - no producer assumptions."""
+    required_fields = ['repo', 'op', 'path']
+    
+    for field in required_fields:
+        if field not in change:
+            raise ValidationError(f"Missing required field: {field}")
+    
+    if change['op'] not in ['add', 'modify', 'delete', 'rename']:
+        raise ValidationError(f"Invalid operation: {change['op']}")
+    
+    # Additional format validation...
+```
+
+### **Producer-Independent Processing Logic**
+```python
+def process_repo_change(change: dict, collection: str):
+    """Process a single change - works with any producer's format."""
+    
+    op = change['op']
+    repo = change['repo'] 
+    path = change['path']
+    
+    if op == 'add':
+        # Create new document
+        content = change.get('content') or change.get('content_base64')
+        if content:
+            create_document(collection, repo, path, content)
+            
+    elif op == 'modify':
+        # Update existing document
+        content = change.get('content') or change.get('content_base64')
+        if content:
+            update_document(collection, repo, path, content)
+            
+    elif op == 'delete':
+        # Remove document
+        delete_document(collection, repo, path)
+        
+    elif op == 'rename':
+        # Rename/move document
+        new_path = change.get('new_path')
+        if new_path:
+            rename_document(collection, repo, path, new_path)
+    
+    # Handle metadata regardless of producer
+    metadata = change.get('metadata', {})
+    if metadata:
+        update_document_metadata(collection, repo, path, metadata)
+```
+
+## 🔌 **Integration Through Files Only**
+
+### **No Code Coupling**
+```
+Filesystem
+    ↓
+Standardized JSONL Files
+    ↓
+Format Validator (Shared Spec)
+    ↓
+Independent Processing
+```
+
+### **Benefits of Zero Dependencies**
+- ✅ **Independent evolution** - each system can change without affecting the other
+- ✅ **Easy testing** - test with mock JSONL files, no external dependencies
+- ✅ **Clear contracts** - format specification is the only interface
+- ✅ **Multiple producers** - any tool can produce JSONL and work with elysiactl
+- ✅ **Multiple consumers** - elysiactl can consume from any JSONL producer
+
+## 📋 **Implementation Checklist**
+
+### **Week 1: Format Specification**
+- [ ] Create JSONL format specification document
+- [ ] Define validation schema (JSON Schema)
+- [ ] Create format validator utility
+- [ ] Write comprehensive examples
+
+### **Week 2: elysiactl Consumer Implementation**
+- [ ] Add JSONL processing commands
+- [ ] Implement format validation
+- [ ] Add file watching capabilities
+- [ ] Test with sample JSONL files
+
+### **Week 3: Integration Testing**
+- [ ] Test with mgit-generated files
+- [ ] Test with manually created JSONL files
+- [ ] Performance testing with large files
+- [ ] Error handling validation
+
+### **Week 4: Documentation & Ecosystem**
+- [ ] Publish format specification
+- [ ] Create consumer development guide
+- [ ] Document integration patterns
+- [ ] Community outreach
+
+## 🎯 **Success Criteria**
+
+### **Functional**
+- ✅ Process JSONL from any producer (mgit, git, manual, etc.)
+- ✅ Validate format without knowing producer details
+- ✅ Handle all supported operations generically
+- ✅ Graceful error handling for malformed input
+
+### **Performance**
+- ✅ Parse 1000+ changes per second
+- ✅ Memory efficient for large JSONL files
+- ✅ Concurrent processing support
+- ✅ Minimal startup time
+
+### **Maintainability**
+- ✅ No producer-specific code
+- ✅ Clear format contract
+- ✅ Easy to add new operations
+- ✅ Comprehensive test coverage
+
+This approach creates a **universal repository change processing platform** where elysiactl is a clean, format-compliant consumer that can work with any JSONL producer, not just mgit.
 
 ### 1. Advanced Data Formats
 **Parquet Support**
