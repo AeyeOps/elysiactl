@@ -359,6 +359,334 @@ elysiactl → reads → /shared/pending/myrepo.jsonl
 
 **The orchestration layer handles the "magic" setup, while the file-based communication ensures robust, decoupled operation for the actual data processing.**
 
+---
+
+## 🎨 **TUI Console Style: Sexy Interactive Experience**
+
+### **Rich Console Interface with Live Updates**
+
+Instead of plain `input()` prompts, let's create a **beautiful, interactive console experience** using Rich and Textual:
+
+```python
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.live import Live
+from rich.prompt import Prompt, Confirm
+from rich.spinner import Spinner
+from textual.app import App
+from textual.widgets import Header, Footer, Static, Button
+from textual.containers import Container, Horizontal, Vertical
+
+class RepoSetupWizard(App):
+    """Beautiful TUI console for repository setup."""
+    
+    def compose(self):
+        yield Header("🎯 Repository Setup Wizard")
+        yield Container(
+            Vertical(
+                Static("🔍 Repository Discovery", id="discovery"),
+                Static("📊 Analysis Results", id="analysis"), 
+                Static("⚙️ Configuration", id="config"),
+                Static("🚀 Launch Status", id="launch"),
+                Horizontal(
+                    Button("Next", id="next"),
+                    Button("Back", id="back"),
+                    Button("Cancel", id="cancel")
+                )
+            )
+        )
+        yield Footer()
+
+class InteractiveRepoSetup:
+    """Rich interactive setup experience."""
+    
+    def __init__(self):
+        self.console = Console()
+        
+    def run_interactive_setup(self):
+        """Run the beautiful interactive setup."""
+        
+        # Animated welcome
+        self._show_welcome_animation()
+        
+        # Step 1: Repository Input with validation
+        repo_url = self._get_repo_url_interactive()
+        
+        # Step 2: Live analysis with spinner
+        analysis = self._analyze_repo_live(repo_url)
+        
+        # Step 3: Smart configuration with previews
+        config = self._configure_smart_defaults(analysis)
+        
+        # Step 4: Launch with progress tracking
+        self._launch_with_progress_tracking(repo_url, config)
+        
+        # Success celebration
+        self._show_success_celebration()
+    
+    def _show_welcome_animation(self):
+        """Animated welcome screen."""
+        welcome_panel = Panel(
+            "[bold blue]🎯 Welcome to Repository Setup![/bold blue]\n\n"
+            "Let's transform your 17-step manual process into a magical experience!\n\n"
+            "[dim]This wizard will guide you through setting up automated repository syncing with monitoring and alerts.[/dim]",
+            title="Repository Setup Wizard",
+            border_style="blue"
+        )
+        
+        self.console.print(welcome_panel)
+        self.console.print()  # Spacing
+    
+    def _get_repo_url_interactive(self) -> str:
+        """Interactive repository URL input with validation."""
+        
+        while True:
+            # Beautiful prompt with help
+            repo_url = Prompt.ask(
+                "[bold cyan]Repository URL[/bold cyan]",
+                default="https://github.com/myorg/myrepo",
+                show_default=True
+            )
+            
+            # Live validation with spinner
+            with self.console.status("[bold green]Validating repository..."):
+                validation = self._validate_repo_url(repo_url)
+            
+            if validation['valid']:
+                # Success with repo info
+                success_panel = Panel(
+                    f"[green]✓ Repository found![/green]\n\n"
+                    f"[bold]Name:[/bold] {validation['name']}\n"
+                    f"[bold]Owner:[/bold] {validation['owner']}\n"
+                    f"[bold]Stars:[/bold] {validation['stars']:,}\n"
+                    f"[bold]Language:[/bold] {validation['language']}\n"
+                    f"[bold]Files:[/bold] {validation['file_count']:,}",
+                    title="Repository Details",
+                    border_style="green"
+                )
+                self.console.print(success_panel)
+                return repo_url
+            else:
+                # Error with suggestions
+                error_panel = Panel(
+                    f"[red]✗ {validation['error']}[/red]\n\n"
+                    "[yellow]💡 Suggestions:[/yellow]\n"
+                    "• Check the URL format\n"
+                    "• Ensure the repository is public\n"
+                    "• Verify your network connection\n"
+                    "• Try a different repository",
+                    title="Validation Failed",
+                    border_style="red"
+                )
+                self.console.print(error_panel)
+    
+    def _analyze_repo_live(self, repo_url: str) -> dict:
+        """Live repository analysis with progress tracking."""
+        
+        analysis_steps = [
+            "Connecting to repository",
+            "Analyzing file structure", 
+            "Detecting programming languages",
+            "Estimating sync requirements",
+            "Checking repository health"
+        ]
+        
+        analysis_results = {}
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            console=self.console
+        ) as progress:
+            
+            main_task = progress.add_task("Analyzing repository...", total=len(analysis_steps))
+            
+            for step in analysis_steps:
+                progress.update(main_task, description=f"[cyan]{step}...")
+                
+                # Simulate analysis work
+                import time
+                time.sleep(0.8)
+                
+                # Generate mock results
+                if "file structure" in step:
+                    analysis_results['file_count'] = 1247
+                    analysis_results['languages'] = ['Python', 'JavaScript', 'YAML']
+                elif "programming languages" in step:
+                    analysis_results['primary_lang'] = 'Python'
+                    analysis_results['framework'] = 'FastAPI'
+                elif "sync requirements" in step:
+                    analysis_results['estimated_time'] = 45
+                    analysis_results['recommended_schedule'] = '30 minutes'
+                
+                progress.update(main_task, advance=1)
+        
+        # Show analysis results
+        analysis_panel = Panel(
+            f"[green]✓ Analysis Complete![/green]\n\n"
+            f"[bold]Files:[/bold] {analysis_results['file_count']:,}\n"
+            f"[bold]Primary Language:[/bold] {analysis_results['primary_lang']}\n"
+            f"[bold]Framework:[/bold] {analysis_results['framework']}\n"
+            f"[bold]Estimated Setup:[/bold] {analysis_results['estimated_time']} seconds\n"
+            f"[bold]Recommended Sync:[/bold] Every {analysis_results['recommended_schedule']}",
+            title="Repository Analysis",
+            border_style="green"
+        )
+        
+        self.console.print(analysis_panel)
+        return analysis_results
+    
+    def _configure_smart_defaults(self, analysis: dict) -> dict:
+        """Smart configuration with live previews."""
+        
+        self.console.print("\n[bold blue]⚙️ Configuration[/bold blue]")
+        
+        # Vector configuration based on analysis
+        vector_config = self._suggest_vector_config(analysis)
+        
+        # Sync schedule based on analysis
+        sync_config = self._suggest_sync_config(analysis)
+        
+        # Collection naming
+        collection_name = self._suggest_collection_name(analysis)
+        
+        # Show configuration preview
+        config_table = Table(title="Configuration Preview")
+        config_table.add_column("Setting", style="cyan")
+        config_table.add_column("Value", style="green")
+        config_table.add_column("Reason", style="dim")
+        
+        config_table.add_row("Collection Name", collection_name, "Auto-generated from repo name")
+        config_table.add_row("Vector Model", vector_config['model'], f"Optimized for {analysis['primary_lang']}")
+        config_table.add_row("Sync Schedule", sync_config['schedule'], sync_config['reason'])
+        config_table.add_row("Monitoring", "Enabled", "Health checks and alerts")
+        
+        self.console.print(config_table)
+        
+        # Allow customization
+        if Confirm.ask("\n[bold]Use these smart defaults?[/bold]", default=True):
+            return {
+                'collection_name': collection_name,
+                'vector_config': vector_config,
+                'sync_config': sync_config,
+                'monitoring': True
+            }
+        else:
+            # Allow manual customization
+            return self._custom_configuration(analysis)
+    
+    def _launch_with_progress_tracking(self, repo_url: str, config: dict):
+        """Launch with beautiful progress tracking."""
+        
+        setup_steps = [
+            "Creating Weaviate collection",
+            "Configuring vector settings",
+            "Setting up mgit integration", 
+            "Creating cron schedule",
+            "Enabling monitoring",
+            "Running initial sync"
+        ]
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(complete_style="green"),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=self.console
+        ) as progress:
+            
+            main_task = progress.add_task("Setting up repository...", total=len(setup_steps))
+            
+            for i, step in enumerate(setup_steps):
+                progress.update(main_task, description=f"[cyan]{step}...")
+                
+                # Simulate setup work
+                import time
+                time.sleep(1.2)
+                
+                progress.update(main_task, advance=1)
+                
+                # Show step completion
+                self.console.print(f"  [green]✓[/green] {step}")
+    
+    def _show_success_celebration(self):
+        """Celebrate successful setup."""
+        
+        success_panel = Panel(
+            "[bold green]🎉 Repository Successfully Added![/bold green]\n\n"
+            "[bold]What just happened:[/bold]\n"
+            "• ✅ Weaviate collection created with optimal settings\n"
+            "• ✅ mgit integration configured for continuous syncing\n"
+            "• ✅ Cron job scheduled for automatic updates\n"
+            "• ✅ Monitoring enabled with health checks and alerts\n\n"
+            "[bold]Quick Start:[/bold]\n"
+            "• Ask Elysia: [dim]'What does main.py do?'[/dim]\n"
+            "• Check status: [dim]'elysiactl repo status'[/dim]\n"
+            "• View logs: [dim]'elysiactl repo logs'[/dim]\n\n"
+            "[cyan]Next sync in 30 minutes...[/cyan]",
+            title="Setup Complete!",
+            border_style="green"
+        )
+        
+        self.console.print(success_panel)
+        
+        # Show real-time status
+        status_table = Table(show_header=True, header_style="bold green")
+        status_table.add_column("Status", style="green")
+        status_table.add_column("Details", style="cyan")
+        
+        status_table.add_row("Collection", f"myrepo (1,247 documents)")
+        status_table.add_row("Sync Status", "Active (next: 30 min)")
+        status_table.add_row("Monitoring", "Enabled")
+        status_table.add_row("Health", "✓ All systems go")
+        
+        self.console.print(status_table)
+```
+
+### **TUI Features**
+
+#### **1. Live Progress with Rich Animations**
+- Spinners during analysis
+- Progress bars with percentages
+- Time elapsed tracking
+- Color-coded status updates
+
+#### **2. Smart Validation with Helpful Errors**
+- Real-time URL validation
+- Contextual error messages
+- Actionable suggestions
+- Recovery guidance
+
+#### **3. Beautiful Data Presentation**
+- Rich tables for configuration
+- Color-coded panels for different states
+- Formatted repository analysis
+- Success celebration screens
+
+#### **4. Interactive Configuration**
+- Smart defaults based on analysis
+- Preview before applying
+- Easy customization options
+- Confirmation workflows
+
+### **Command Line Alternative**
+```bash
+# Everything also available via command line
+elysiactl repo add https://github.com/myorg/myrepo \
+  --vector-model text2vec-openai \
+  --sync-schedule "*/30 * * * *" \
+  --collection myrepo \
+  --enable-monitoring
+
+# Or with non-interactive mode
+elysiactl repo add https://github.com/myorg/myrepo --yes
+```
+
+**The TUI experience is optional - all functionality is available via command line, but the interactive mode provides a much more delightful and guided experience!** ✨
+
 ### 1. Advanced Data Formats
 **Parquet Support**
 - Add Apache Parquet format for analytics workloads
