@@ -17,6 +17,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich import box
 
 from ..config import get_config
+from ..services.sync import StreamSync
+from ..services.sync import StreamSync
 
 app = typer.Typer(help="Index source code into Weaviate collections")
 console = Console()
@@ -568,6 +570,54 @@ async def index_enterprise_async(repos: List[Path], collection_name: str, clear:
                 console.print(f"\n[dim]Collection now contains {count:,} documents[/dim]")
         except:
             pass
+
+
+@app.command()
+def sync(
+    stdin: bool = typer.Option(True, "--stdin", help="Read file changes from standard input"),
+    collection: Optional[str] = typer.Option(None, "--collection", help="Collection name to use"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be changed without modifying Weaviate"),
+    verbose: bool = typer.Option(False, "--verbose", help="Show detailed progress for each file"),
+):
+    """Sync file changes from stdin to Weaviate collection.
+    
+    Reads JSONL formatted changes from stdin and updates the Weaviate collection.
+    Supports three content formats: content, content_base64, content_ref.
+    """
+    asyncio.run(sync_changes_async(stdin, collection, dry_run, verbose))
+
+
+async def sync_changes_async(use_stdin: bool, collection_name: Optional[str], dry_run: bool, verbose: bool):
+    """Async function to sync changes from stdin to Weaviate."""
+    config = get_config()
+    if collection_name is None:
+        collection_name = config.collections.default_source_collection
+    
+    # Ensure collection exists
+    if not await ensure_collection_schema(collection_name):
+        console.print("[red]Failed to ensure collection schema[/red]")
+        raise typer.Exit(1)
+    
+    # Initialize sync service
+    sync_service = StreamSync(collection_name, dry_run, verbose)
+    
+    # Process stdin stream
+    await sync_service.process_stdin()
+
+
+@app.command()
+def sync(
+    stdin: bool = typer.Option(True, "--stdin", help="Read file changes from standard input"),
+    collection: Optional[str] = typer.Option(None, "--collection", help="Collection name to use"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be changed without modifying Weaviate"),
+    verbose: bool = typer.Option(False, "--verbose", help="Show detailed progress for each file"),
+):
+    """Sync file changes from stdin to Weaviate collection.
+    
+    Reads JSONL formatted changes from stdin and updates the Weaviate collection.
+    Supports three content formats: content, content_base64, content_ref.
+    """
+    asyncio.run(sync_changes_async(stdin, collection, dry_run, verbose))
 
 
 @app.command()
