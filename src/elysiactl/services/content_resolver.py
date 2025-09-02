@@ -22,6 +22,8 @@ class ContentAnalysis:
     is_skippable: bool
     predicted_tier: int  # What tier mgit would likely use
     skip_reason: Optional[str] = None
+    embed_content: bool = False  # Whether mgit would embed content
+    use_base64: bool = False     # Whether mgit would use base64 encoding
 
 class ContentResolver:
     """Content resolver for consuming mgit's three-tier output and local analysis."""
@@ -96,14 +98,14 @@ class ContentResolver:
             return ContentAnalysis(
                 file_size=0, mime_type="unknown", is_binary=False, 
                 is_text=False, is_skippable=True, predicted_tier=0,
-                skip_reason="File not found"
+                skip_reason="File not found", embed_content=False, use_base64=False
             )
         
         if not path.is_file():
             return ContentAnalysis(
                 file_size=0, mime_type="unknown", is_binary=False,
                 is_text=False, is_skippable=True, predicted_tier=0,
-                skip_reason="Not a regular file"
+                skip_reason="Not a regular file", embed_content=False, use_base64=False
             )
         
         try:
@@ -120,7 +122,7 @@ class ContentResolver:
                 return ContentAnalysis(
                     file_size=file_size, mime_type=mime_type, is_binary=is_binary,
                     is_text=is_text, is_skippable=True, predicted_tier=3,
-                    skip_reason="Vendor/generated directory"
+                    skip_reason="Vendor/generated directory", embed_content=False, use_base64=False
                 )
             
             # Check for binary files
@@ -128,33 +130,41 @@ class ContentResolver:
                 return ContentAnalysis(
                     file_size=file_size, mime_type=mime_type, is_binary=True,
                     is_text=False, is_skippable=True, predicted_tier=3,
-                    skip_reason=f"Binary file ({mime_type})"
+                    skip_reason=f"Binary file ({mime_type})", embed_content=False, use_base64=False
                 )
             
             # Predict mgit's tier based on file size
             if file_size <= self.TIER_1_MAX:
                 predicted_tier = 1  # mgit would embed as plain text
+                embed_content = True
+                use_base64 = False
             elif file_size <= self.TIER_2_MAX and is_text:
                 predicted_tier = 2  # mgit would embed as base64
+                embed_content = True
+                use_base64 = True
             elif file_size <= self.TIER_3_MAX:
                 predicted_tier = 3  # mgit would use reference
+                embed_content = False
+                use_base64 = False
             else:
                 return ContentAnalysis(
                     file_size=file_size, mime_type=mime_type, is_binary=is_binary,
                     is_text=is_text, is_skippable=True, predicted_tier=3,
-                    skip_reason=f"File too large ({file_size} bytes)"
+                    skip_reason=f"File too large ({file_size} bytes)",
+                    embed_content=False, use_base64=False
                 )
             
             return ContentAnalysis(
                 file_size=file_size, mime_type=mime_type, is_binary=is_binary,
-                is_text=is_text, is_skippable=False, predicted_tier=predicted_tier
+                is_text=is_text, is_skippable=False, predicted_tier=predicted_tier,
+                embed_content=embed_content, use_base64=use_base64
             )
                 
         except OSError as e:
             return ContentAnalysis(
                 file_size=0, mime_type="unknown", is_binary=False,
                 is_text=False, is_skippable=True, predicted_tier=0,
-                skip_reason=f"OS error: {e}"
+                skip_reason=f"OS error: {e}", embed_content=False, use_base64=False
             )
     
     def _should_skip_path(self, path: Path) -> bool:
@@ -238,3 +248,42 @@ class ContentResolver:
                 stats['tier_3_reference'] += 1
         
         return stats
+
+    def create_optimized_change(self, file_path: str, operation: str, line_number: int) -> Dict[str, Any]:
+        """Create an optimized change object for mgit consumption."""
+        analysis = self.analyze_file(file_path)
+        path_obj = Path(file_path)
+        
+        change = {
+            'path': str(path_obj),
+            'op': operation,
+            'line': line_number,
+            'size': analysis.file_size
+        }
+        
+        # For large files, use content_ref instead of embedding
+        if analysis.predicted_tier == 3:
+            change['content_ref'] = str(path_obj)
+        elif analysis.predicted_tier == 2:
+            # For medium files, use base64 encoding
+            try:
+                with open(file_path, 'rb') as f:
+                    content_bytes = f.read()
+                    change['content_base64'] = base64.b64encode(content_bytes).decode('utf-8')
+            except Exception:
+                change['content_ref'] = str(path_obj)
+        else:
+            # For small files, embed content directly
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    change['content'] = f.read()
+            except UnicodeDecodeError:
+                # Fallback to base64 for non-UTF8 text files
+                try:
+                    with open(file_path, 'rb') as f:
+                        content_bytes = f.read()
+                        change['content_base64'] = base64.b64encode(content_bytes).decode('utf-8')
+                except Exception:
+                    change['content_ref'] = str(path_obj)
+        
+        return change

@@ -1,0 +1,24 @@
+collection_management:
+  # Patterns that cannot be deleted without override
+  protected_patterns:
+    - "ELYSIA_*"
+    - "*_SYSTEM"
+    - ".internal*"
+
+  # Confirmation requirements
+  confirmations:
+    delete_with_data: true
+    clear_data: true
+    modify_protected: true
+
+  # Default values
+  defaults:
+    replication_factor: 3
+    shard_count: 1
+    batch_size: 100
+
+  # Output settings
+  output:
+    default_format: "table"
+    truncate_strings: 50
+    show_vectors: false

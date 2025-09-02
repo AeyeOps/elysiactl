@@ -37,6 +37,13 @@ elysiactl/
 - **Monitoring**: Real-time stats with Rich Live
 - **Concurrency**: asyncio for parallel operations
 
+## Command Structure
+
+```
+elysiactl collection <subcommand> [options]
+elysiactl col <subcommand> [options]  # Short alias
+```
+
 ## Feature Categories
 
 ### 1. Core Operations (Phase 1)
@@ -47,6 +54,26 @@ Essential CRUD operations for daily collection management.
 - `col show` - Display detailed information
 - `col rm` - Safe deletion with confirmations
 - `col create` - Create with templates
+
+**Command Examples**:
+```bash
+# List collections with verbose output
+elysiactl col ls --verbose --format table
+
+# Show specific collection
+elysiactl col show UserDocuments --schema --stats
+
+# Remove collection with safety prompt
+elysiactl col rm UserDocuments
+# ⚠ WARNING: This will permanently delete collection 'UserDocuments'
+#   Objects: 1,250
+#   Replicas: 3
+#   Created: 2024-01-15
+# Type 'yes' to confirm deletion: yes
+
+# Create collection from template
+elysiactl col create NewCollection --from-template standard --replication 3
+```
 
 **Key Capabilities**:
 - Pattern-based filtering
@@ -127,6 +154,30 @@ elysiactl col migrate SourceCollection --target http://new-cluster:8080
 
 # Verify migration
 elysiactl col health SourceCollection --target http://new-cluster:8080
+```
+
+### Development Cleanup Workflow
+```bash
+# List all test collections
+elysiactl col ls --filter "test_*"
+
+# Remove all test collections
+for col in $(elysiactl col ls --filter "test_*" --format json | jq -r '.[].name'); do
+  elysiactl col rm $col --force
+done
+```
+
+### Schema Update Workflow
+```bash
+# Backup existing collection
+elysiactl col backup UserProfile --output ./backup
+
+# Delete and recreate with new schema
+elysiactl col rm UserProfile --force
+elysiactl col create UserProfile --schema-file ./new-schema.json
+
+# Restore data
+elysiactl col restore ./backup/UserProfile.json --skip-schema
 ```
 
 ## Safety Mechanisms

@@ -11,7 +11,7 @@ import asyncio
 from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, List, Tuple, Any, AsyncIterator
 
 import httpx
 from rich.console import Console
@@ -37,7 +37,7 @@ class SQLiteCheckpointManager:
         self.db_path = self.state_dir / "sync_checkpoints.db"
         self.timeout = config.processing.sqlite_timeout
         self._init_database()
-    
+
     def _init_database(self):
         """Initialize checkpoint database with WAL mode for concurrent access."""
         with self._get_connection() as conn:
@@ -113,7 +113,7 @@ class SQLiteCheckpointManager:
     
     def start_run(self, collection_name: str, dry_run: bool = False, input_source: str = "stdin") -> str:
         """Start a new sync run and return run_id."""
-        run_id = f"sync_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
+        run_id = f"sync_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}_{uuid.uuid4().hex[:8]}"
         
         with self._get_connection() as conn:
             conn.execute("""
@@ -692,7 +692,7 @@ async def process_index_batch(changes: List[Dict[str, Any]],
     
     return results
 
-def sync_files_from_stdin(
+async def sync_files_from_stdin(
     collection: str,
     dry_run: bool = False,
     verbose: bool = False,
@@ -733,21 +733,11 @@ def sync_files_from_stdin(
             'memory_limit_mb': 512
         }
     
-        # Run the async sync function directly (don't use asyncio.run)
-        import asyncio
-        try:
-            loop = asyncio.get_running_loop()
-            # If we're already in an event loop, create a task
-            return loop.create_task(sync_files_from_stdin_async(
-                collection, dry_run, verbose, use_stdin, batch_size, 
-                parallel, max_workers
-            )).result()
-        except RuntimeError:
-            # No event loop running, use asyncio.run
-            return asyncio.run(sync_files_from_stdin_async(
-                collection, dry_run, verbose, use_stdin, batch_size, 
-                parallel, max_workers
-            ))
+        # Use the async sync function directly
+        return await sync_files_from_stdin_async(
+            collection, dry_run, verbose, use_stdin, batch_size, 
+            parallel, max_workers
+        )
         
     except KeyboardInterrupt:
         console.print(f"\n[yellow]Interrupted - run {run_id} can be resumed[/yellow]")
@@ -806,21 +796,11 @@ async def sync_files_from_stdin_async(
             'memory_limit_mb': 512
         }
     
-        # Run the async sync function directly (don't use asyncio.run)
-        import asyncio
-        try:
-            loop = asyncio.get_running_loop()
-            # If we're already in an event loop, create a task
-            return loop.create_task(_sync_files_from_stdin_async(
-                run_id, collection, dry_run, verbose, use_stdin, batch_size, 
-                parallel, max_workers, perf_config, checkpoint, error_handler, config
-            )).result()
-        except RuntimeError:
-            # No event loop running, use asyncio.run
-            return asyncio.run(_sync_files_from_stdin_async(
-                run_id, collection, dry_run, verbose, use_stdin, batch_size, 
-                parallel, max_workers, perf_config, checkpoint, error_handler, config
-            ))
+        # Use the async sync function directly
+        return await _sync_files_from_stdin_async(
+            run_id, collection, dry_run, verbose, use_stdin, batch_size, 
+            parallel, max_workers, perf_config, checkpoint, error_handler, config
+        )
         
     except KeyboardInterrupt:
         console.print(f"\n[yellow]Interrupted - run {run_id} can be resumed[/yellow]")
@@ -910,4 +890,43 @@ async def _sync_files_from_stdin_async(run_id, collection, dry_run, verbose, use
         await performance_optimizer.cleanup()
 
 
-# Legacy classes removed - Phase 2 complete
+async def optimized_sync_generator(stdin_lines) -> AsyncIterator[Dict[str, Any]]:
+    """Convert stdin lines to async generator for optimization."""
+    for line_number, line in stdin_lines:
+        change = parse_input_line(line, line_number)
+        if change:
+            yield change
+
+async def process_change_batch(changes: List[Dict[str, Any]], 
+                             weaviate: WeaviateService, 
+                             embedding: EmbeddingService,
+                             collection: str,
+                             dry_run: bool = False) -> List[Dict[str, Any]]:
+    """Process a batch of changes in parallel."""
+    # Separate operations by type for batch optimization
+    index_operations = []
+    delete_operations = []
+    
+    for change in changes:
+        if change.get('op') == 'delete':
+            delete_operations.append(change)
+        else:
+            index_operations.append(change)
+    
+    results = []
+    
+    # Process index operations in batch
+    if index_operations:
+        batch_results = await process_index_batch(
+            index_operations, weaviate, embedding, collection, dry_run
+        )
+        results.extend(batch_results)
+    
+    # Process delete operations
+    for delete_op in delete_operations:
+        result = await process_single_change(
+            delete_op, weaviate, embedding, collection, dry_run
+        )
+        results.append({'success': result, 'operation': 'delete', 'path': delete_op.get('path')})
+    
+    return results

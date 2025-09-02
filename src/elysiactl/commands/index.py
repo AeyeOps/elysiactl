@@ -606,7 +606,7 @@ async def sync_changes_async(use_stdin: bool, collection_name: Optional[str], dr
         raise typer.Exit(1)
     
     # Use the async sync function directly
-    return await sync_files_from_stdin_async(
+    return await sync_files_from_stdin(
         collection=collection_name,
         dry_run=dry_run,
         verbose=verbose,
