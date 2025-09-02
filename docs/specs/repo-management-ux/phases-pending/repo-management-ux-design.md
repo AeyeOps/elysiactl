@@ -1,4 +1,4 @@
-# **MGit + Elysiactl Integration: Pleasant UX Design**
+# **mgit + elysiactl Integration: Pleasant UX Design**
 
 ## 🎯 **Vision: One-Command Repository Setup**
 Transform the 17-step manual process into a single, guided experience that feels like magic.
@@ -12,7 +12,7 @@ elysiactl repo add https://github.com/myorg/myrepo --watch
 
 ### **What This Does (Automatically)**
 1. ✅ **Discovers Repository** - Validates GitHub access and repo structure
-2. ✅ **Sets Up MGit** - Configures mgit index and patterns automatically
+2. ✅ **Sets Up mgit** - Configures mgit index and patterns automatically
 3. ✅ **Creates Weaviate Collection** - Provisions collection with optimal settings
 4. ✅ **Configures Sync** - Sets up cron job for continuous updates
 5. ✅ **Enables Monitoring** - Adds status tracking and alerts
@@ -254,75 +254,110 @@ $ elysiactl repo diagnose myrepo
 
 ---
 
-## 🏗️ **Clean Architecture: Zero Dependencies**
+## 🔧 **Technical Implementation: Orchestration Layer**
 
-### **Dependency Rules**
-- ✅ **mgit**: Knows nothing about elysiactl
-- ✅ **elysiactl**: Knows nothing about mgit
-- ✅ **Both**: Know only the standardized JSONL format
-- ✅ **Integration**: Purely through file format contract
+### **How elysiactl Accesses mgit**
 
-### **Clean Command Interface**
-```bash
-# Generic file processing - no mgit knowledge
-elysiactl index process-jsonl /path/to/changes.jsonl --collection source-code
+For the one-command setup to work, elysiactl needs an **orchestration layer** that can configure and trigger mgit operations. Here are the integration approaches:
 
-# Or via stdin for any producer
-cat changes.jsonl | elysiactl index sync --stdin --collection source-code
-
-# Or watch directory for any producer's files
-elysiactl index watch /shared/pending/ --pattern "*.jsonl" --collection source-code
-```
-
-### **Format-Agnostic Processing**
+### **Option 1: Subprocess Calls (Recommended for UX)**
 ```python
-def process_repo_change(change: dict, collection: str):
-    """Process a single change - works with any producer's format."""
-    op = change['op']
-    repo = change['repo']
-    path = change['path']
+# elysiactl uses subprocess to orchestrate mgit setup
+import subprocess
 
-    if op == 'add':
-        content = change.get('content') or change.get('content_base64')
-        if content:
-            create_document(collection, repo, path, content)
-
-    elif op == 'modify':
-        content = change.get('content') or change.get('content_base64')
-        if content:
-            update_document(collection, repo, path, content)
-
-    elif op == 'delete':
-        delete_document(collection, repo, path)
-
-    elif op == 'rename':
-        new_path = change.get('new_path')
-        if new_path:
-            rename_document(collection, repo, path, new_path)
+def setup_mgit_integration(repo_url: str, collection_name: str):
+    """Set up mgit integration for a repository."""
+    
+    # 1. Configure mgit for this repo
+    subprocess.run([
+        "mgit", "config", "add-repo", repo_url,
+        "--collection", collection_name,
+        "--output-dir", f"/shared/mgit/{collection_name}"
+    ], check=True)
+    
+    # 2. Set up mgit sync schedule
+    subprocess.run([
+        "mgit", "schedule", "add", 
+        f"sync-{collection_name}",
+        "--pattern", repo_url,
+        "--interval", "30m",
+        "--output", f"/shared/pending/{collection_name}.jsonl"
+    ], check=True)
+    
+    # 3. Trigger initial sync
+    subprocess.run([
+        "mgit", "sync", repo_url,
+        "--output", f"/shared/pending/{collection_name}.jsonl"
+    ], check=True)
 ```
 
----
+### **Option 2: Shared Configuration Files**
+```python
+# Both tools read from shared YAML configuration
+# /shared/config/mgit-elysiactl.yaml
+repositories:
+  myrepo:
+    url: https://github.com/myorg/myrepo
+    collection: myrepo
+    schedule: "*/30 * * * *"
+    output_dir: /shared/pending
+    elysiactl_collection: myrepo
 
-## 🚀 **Implementation Roadmap**
+# mgit reads this config to know what to index
+# elysiactl reads this config to know what to expect
+```
 
-### **Phase 1: Core Experience (2 weeks)**
-- [ ] Implement `elysiactl repo add` with guided setup
-- [ ] Create `elysiactl repo status` dashboard
-- [ ] Add `elysiactl repo logs` for monitoring
-- [ ] Basic mgit integration
+### **Option 3: mgit Plugin System**
+```python
+# mgit provides hooks that elysiactl can register for
+from mgit.plugins import register_hook
 
-### **Phase 2: Advanced Features (2 weeks)**
-- [ ] Custom vector configurations
-- [ ] Advanced filtering and patterns
-- [ ] Batch operations
-- [ ] Enhanced error recovery
+@register_hook('post_sync')
+def elysiactl_ingest_hook(repo_data, output_file):
+    """Hook that triggers elysiactl ingestion."""
+    subprocess.run([
+        "elysiactl", "index", "sync", 
+        "--stdin", "--collection", repo_data['collection']
+    ], input=open(output_file), text=True)
+```
 
-### **Phase 3: Ecosystem (1 week)**
-- [ ] Documentation and examples
-- [ ] Community templates
-- [ ] Integration guides
+### **Recommended Approach: Hybrid Subprocess + File-Based**
 
-This design transforms a complex 17-step process into a delightful, one-command experience that makes repository setup feel effortless while providing powerful monitoring and management capabilities.
+#### **Orchestration Layer (Subprocess)**
+- ✅ **Setup & Configuration**: elysiactl configures mgit via subprocess calls
+- ✅ **Scheduling**: elysiactl sets up cron jobs that trigger mgit
+- ✅ **Monitoring**: elysiactl can check mgit status via subprocess
+- ✅ **Error Recovery**: elysiactl can restart mgit operations if needed
+
+#### **Data Transfer Layer (File-Based)**
+- ✅ **Complete Decoupling**: No runtime dependencies between systems
+- ✅ **Reliability**: File-based communication survives system restarts
+- ✅ **Multi-Consumer**: Files can be consumed by monitoring, analytics, etc.
+- ✅ **Debugging**: All communication is logged and inspectable
+
+### **Implementation Example**
+```bash
+# User runs one command
+$ elysiactl repo add https://github.com/myorg/myrepo --watch
+
+# Behind the scenes - orchestration layer
+1. elysiactl calls: mgit config add-repo <url> --output /shared/mgit/myrepo
+2. elysiactl sets up: cron job to run mgit sync every 30 minutes
+3. elysiactl creates: monitoring scripts to watch /shared/pending/*.jsonl
+
+# Data flows through files (decoupled)
+mgit → writes → /shared/pending/myrepo.jsonl
+elysiactl → reads → /shared/pending/myrepo.jsonl
+```
+
+### **Benefits of This Approach**
+- ✅ **Best of Both Worlds**: Orchestration when needed, decoupling for reliability
+- ✅ **Maintains Clean Architecture**: Core data transfer is still file-based
+- ✅ **Practical Implementation**: Subprocess is standard and reliable
+- ✅ **Easy Troubleshooting**: Each step can be run/debugged independently
+- ✅ **Gradual Rollout**: Can start with basic file-watching, add orchestration later
+
+**The orchestration layer handles the "magic" setup, while the file-based communication ensures robust, decoupled operation for the actual data processing.**
 
 ### 1. Advanced Data Formats
 **Parquet Support**
