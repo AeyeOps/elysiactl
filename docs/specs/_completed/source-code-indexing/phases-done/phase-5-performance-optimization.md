@@ -833,9 +833,9 @@ def tune(
     
     # Environment variable suggestions
     console.print(f"\n[bold]Environment Variables:[/bold]")
-    console.print(f"  export elysiactl_BATCH_SIZE={optimal_batch_size}")
-    console.print(f"  export elysiactl_MAX_WORKERS={optimal_workers}")
-    console.print(f"  export elysiactl_MAX_CONNECTIONS=20")
+    console.print(f"  export ELYSIACTL_BATCH_SIZE={optimal_batch_size}")
+    console.print(f"  export ELYSIACTL_MAX_WORKERS={optimal_workers}")
+    console.print(f"  export ELYSIACTL_MAX_CONNECTIONS=20")
 ```
 
 **Update existing sync command to include performance options:**
@@ -973,21 +973,21 @@ class ProcessingConfig:
     # ... existing fields ...
     
     # Performance optimization settings
-    max_workers: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_WORKERS", "8")))
-    max_connections: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_CONNECTIONS", "20")))
-    connection_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_CONNECTION_TIMEOUT", "30.0")))
+    max_workers: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_WORKERS", "8")))
+    max_connections: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_CONNECTIONS", "20")))
+    connection_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_CONNECTION_TIMEOUT", "30.0")))
     
     # Memory management
-    memory_limit_mb: int = field(default_factory=lambda: int(os.getenv("elysiactl_MEMORY_LIMIT_MB", "512")))
-    streaming_buffer_size: int = field(default_factory=lambda: int(os.getenv("elysiactl_STREAMING_BUFFER_SIZE", "1000")))
+    memory_limit_mb: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MEMORY_LIMIT_MB", "512")))
+    streaming_buffer_size: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_STREAMING_BUFFER_SIZE", "1000")))
     
     # Batch optimization
-    enable_batch_operations: bool = field(default_factory=lambda: os.getenv("elysiactl_ENABLE_BATCH_OPERATIONS", "true").lower() == "true")
-    batch_flush_interval: float = field(default_factory=lambda: float(os.getenv("elysiactl_BATCH_FLUSH_INTERVAL", "5.0")))
+    enable_batch_operations: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_ENABLE_BATCH_OPERATIONS", "true").lower() == "true")
+    batch_flush_interval: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_BATCH_FLUSH_INTERVAL", "5.0")))
     
     # Performance monitoring
-    enable_metrics: bool = field(default_factory=lambda: os.getenv("elysiactl_ENABLE_METRICS", "true").lower() == "true")
-    metrics_interval: float = field(default_factory=lambda: float(os.getenv("elysiactl_METRICS_INTERVAL", "10.0")))
+    enable_metrics: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_ENABLE_METRICS", "true").lower() == "true")
+    metrics_interval: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_METRICS_INTERVAL", "10.0")))
 ```
 
 This phase transforms elysiactl into a high-performance tool capable of handling enterprise-scale workloads with parallel processing, optimized batching, connection pooling, and comprehensive performance monitoring. The optimizations provide 5-10x throughput improvements while maintaining reliability and providing operational visibility.

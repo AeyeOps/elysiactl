@@ -4,8 +4,9 @@ import os
 import time
 from typing import Dict, Any, Optional, List
 import httpx
-import subprocess
 import json
+from datetime import datetime, timezone
+from pathlib import Path
 
 from ..utils.process import run_command, find_process_by_port, get_docker_container_pid
 from ..utils.display import show_progress, print_success, print_error
@@ -399,6 +400,69 @@ class WeaviateService:
             pass
         
         return None
+    
+    async def index_file(self, file_path: str, content: str, collection_name: str, embedding: Optional[List[float]] = None) -> bool:
+        """Index a single file with content and optional embedding."""
+        try:
+            # Generate UUID from file path for deterministic object ID
+            import uuid
+            import hashlib
+            
+            # Create deterministic UUID from file path and collection
+            namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
+            object_id = str(uuid.uuid5(namespace, f"{collection_name}:{file_path}"))
+            
+            # Prepare the object data
+            weaviate_object = {
+                "id": object_id,
+                "class": collection_name,
+                "properties": {
+                    "file_path": str(file_path),
+                    "file_name": Path(file_path).name,
+                    "content": content,
+                    "language": self._get_language_from_path(Path(file_path)),
+                    "extension": Path(file_path).suffix or "none",
+                    "size_bytes": len(content.encode('utf-8')),
+                    "line_count": content.count('\n') + 1,
+                    "last_indexed": datetime.now(timezone.utc).isoformat() + "Z",
+                    "content_hash": hashlib.sha256(content.encode()).hexdigest()
+                }
+            }
+            
+            # Add vector if provided
+            if embedding and any(v != 0 for v in embedding):  # Check if embedding has actual values
+                weaviate_object["vector"] = embedding
+            
+            # Insert the object
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/objects",
+                    json=weaviate_object,
+                    timeout=30.0
+                )
+                return response.status_code in [200, 201]
+                
+        except Exception as e:
+            print(f"Failed to index file {file_path}: {e}")
+            return False
+    
+    def _get_language_from_path(self, path: Path) -> str:
+        """Get programming language from file extension."""
+        ext_to_lang = {
+            '.py': 'Python', '.js': 'JavaScript', '.jsx': 'JavaScript',
+            '.ts': 'TypeScript', '.tsx': 'TypeScript', '.cs': 'C#',
+            '.java': 'Java', '.cpp': 'C++', '.c': 'C', '.go': 'Go',
+            '.rs': 'Rust', '.rb': 'Ruby', '.php': 'PHP', '.swift': 'Swift',
+            '.kt': 'Kotlin', '.scala': 'Scala', '.sh': 'Shell', '.ps1': 'PowerShell',
+            '.sql': 'SQL', '.html': 'HTML', '.css': 'CSS', '.json': 'JSON',
+            '.yaml': 'YAML', '.yml': 'YAML', '.xml': 'XML', '.md': 'Markdown',
+            '.toml': 'TOML', '.dockerfile': 'Docker', 'Dockerfile': 'Docker',
+        }
+        
+        if path.name in ext_to_lang:
+            return ext_to_lang[path.name]
+        
+        return ext_to_lang.get(path.suffix.lower(), 'Unknown')
     
     async def delete_object(self, object_id: str) -> bool:
         """Delete an object from Weaviate."""

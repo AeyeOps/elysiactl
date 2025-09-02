@@ -5,7 +5,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 from rich import box
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 console = Console()
 

@@ -609,13 +609,13 @@ done
 
 ```bash
 # Prometheus metrics format
-elysiactl_sync_last_run_timestamp{status="success"} 1735650600
-elysiactl_sync_files_processed_total{operation="add"} 1523
-elysiactl_sync_files_processed_total{operation="update"} 8934
-elysiactl_sync_files_processed_total{operation="delete"} 234
-elysiactl_sync_failures_total{reason="file_not_found"} 12
-elysiactl_sync_failures_total{reason="weaviate_error"} 3
-elysiactl_sync_duration_seconds 4320
+ELYSIACTL_sync_last_run_timestamp{status="success"} 1735650600
+ELYSIACTL_sync_files_processed_total{operation="add"} 1523
+ELYSIACTL_sync_files_processed_total{operation="update"} 8934
+ELYSIACTL_sync_files_processed_total{operation="delete"} 234
+ELYSIACTL_sync_failures_total{reason="file_not_found"} 12
+ELYSIACTL_sync_failures_total{reason="weaviate_error"} 3
+ELYSIACTL_sync_duration_seconds 4320
 ```
 
 ### Health Check Endpoint
@@ -747,7 +747,7 @@ Different environments can track different points in history.
    ```prometheus
    # Alert when checkpoint lag exceeds 4x median
    alert: SyncCheckpointLag
-   expr: elysiactl_sync_checkpoint_lag_seconds > (4 * avg_over_time(elysiactl_batch_duration[1h]))
+   expr: ELYSIACTL_sync_checkpoint_lag_seconds > (4 * avg_over_time(ELYSIACTL_batch_duration[1h]))
    ```
 
 3. **Dry-run validation**: Full pipeline without writes

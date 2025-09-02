@@ -39,7 +39,7 @@ According to Weaviate documentation:
         try:
             # Write test record to primary node
             write_response = httpx.post(
-                f"http://localhost:8080/v1/objects/ELYSIA_CONFIG__",
+                f"http://localhost:8080/v1/objects/ELYSIACTL_CONFIG__",
                 json=test_data,
                 timeout=5.0
             )
@@ -105,7 +105,7 @@ According to Weaviate documentation:
         try:
             # Write test record to primary node
             write_response = httpx.post(
-                f"http://localhost:8080/v1/objects/ELYSIA_CONFIG__",
+                f"http://localhost:8080/v1/objects/ELYSIACTL_CONFIG__",
                 json=test_data,
                 timeout=5.0
             )
@@ -226,7 +226,7 @@ from dataclasses import dataclass
 **Current Code:**
 ```python
         create_response.raise_for_status()
-        console.print("[green]✓[/green] Recreated ELYSIA_CONFIG__ with replication factor=3")
+        console.print("[green]✓[/green] Recreated ELYSIACTL_CONFIG__ with replication factor=3")
     except httpx.HTTPError as e:
         console.print(f"[red]Failed to recreate collection: {e}[/red]")
 ```
@@ -234,7 +234,7 @@ from dataclasses import dataclass
 **New Code:**
 ```python
         create_response.raise_for_status()
-        console.print("[green]✓[/green] Recreated ELYSIA_CONFIG__ with replication factor=3")
+        console.print("[green]✓[/green] Recreated ELYSIACTL_CONFIG__ with replication factor=3")
         
         # Force schema replication by inserting and deleting a test record
         console.print("[dim]Triggering schema replication...[/dim]")
@@ -246,7 +246,7 @@ from dataclasses import dataclass
         try:
             # Insert test record
             trigger_response = httpx.post(
-                "http://localhost:8080/v1/objects/ELYSIA_CONFIG__",
+                "http://localhost:8080/v1/objects/ELYSIACTL_CONFIG__",
                 json=test_data,
                 timeout=5.0
             )
@@ -260,7 +260,7 @@ from dataclasses import dataclass
                 
                 # Delete test record
                 if object_id:
-                    httpx.delete(f"http://localhost:8080/v1/objects/ELYSIA_CONFIG__/{object_id}")
+                    httpx.delete(f"http://localhost:8080/v1/objects/ELYSIACTL_CONFIG__/{object_id}")
                 
                 console.print("[green]✓[/green] Schema replication triggered")
         except httpx.HTTPError:
@@ -286,7 +286,7 @@ from dataclasses import dataclass
 
 ### Step 3: Test the implementation
 1. Run cluster verification: `uv run elysiactl health --cluster`
-2. Verify ELYSIA_CONFIG__ now shows as replicated to all nodes
+2. Verify ELYSIACTL_CONFIG__ now shows as replicated to all nodes
 3. Run repair command: `uv run elysiactl repair config-replication`
 4. Verify immediate replication occurs (no false "PARTIAL" message)
 
@@ -299,14 +299,14 @@ uv run elysiactl status
 
 # Check current false negative
 uv run elysiactl health --cluster
-# Should show ELYSIA_CONFIG__ as "1/3 nodes" (false negative)
+# Should show ELYSIACTL_CONFIG__ as "1/3 nodes" (false negative)
 ```
 
 ### Execution
 ```bash
 # Test cluster verification with new logic
 uv run elysiactl health --cluster
-# Should now show ELYSIA_CONFIG__ properly replicated
+# Should now show ELYSIACTL_CONFIG__ properly replicated
 
 # Test repair command with trigger
 uv run elysiactl repair config-replication
@@ -316,13 +316,13 @@ uv run elysiactl repair config-replication
 ### Post-conditions
 ```bash
 # Verify accurate reporting
-uv run elysiactl health --cluster | grep "ELYSIA_CONFIG__"
+uv run elysiactl health --cluster | grep "ELYSIACTL_CONFIG__"
 # Should show "3/3 nodes" or correct distribution
 
 # Verify no test records remain
 curl -X POST http://localhost:8080/v1/graphql \
   -H "Content-Type: application/json" \
-  -d '{"query": "{ Get { ELYSIA_CONFIG__ { config_key config_value } } }"}'
+  -d '{"query": "{ Get { ELYSIACTL_CONFIG__ { config_key config_value } } }"}'
 # Should return empty results
 ```
 
@@ -347,7 +347,7 @@ If the changes cause issues:
 1. **API Endpoint Issue**: Initial implementation used wrong endpoint `/v1/objects/COLLECTION_NAME` instead of `/v1/objects` with class in payload
 2. **Docker Logs Revealed Root Cause**: 
    - "async replication disabled on shard"
-   - ELYSIA_CONFIG__ shards exist only on node1
+   - ELYSIACTL_CONFIG__ shards exist only on node1
    - No actual replication occurring despite replication_factor=3
 3. **Missing RAFT Configuration**: The docker-compose.yaml lacks critical RAFT settings:
    - No CLUSTER_DATA_BIND_PORT for any nodes

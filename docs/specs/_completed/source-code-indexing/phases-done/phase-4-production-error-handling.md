@@ -723,7 +723,7 @@ find /opt/elysiactl -name "*.py" | head -50 | uv run elysiactl index sync --stdi
 ### Test timeout handling:
 ```bash
 # Test with very small timeout (requires configuration)
-elysiactl_SHORT_TIMEOUT=0.001 echo "test.py" | uv run elysiactl index sync --stdin --verbose
+ELYSIACTL_SHORT_TIMEOUT=0.001 echo "test.py" | uv run elysiactl index sync --stdin --verbose
 ```
 
 ## Success Criteria
@@ -754,17 +754,17 @@ class ProcessingConfig:
     # ... existing fields ...
     
     # Error handling configuration
-    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_RETRY_ATTEMPTS", "3")))
-    retry_base_delay: float = field(default_factory=lambda: float(os.getenv("elysiactl_RETRY_BASE_DELAY", "1.0")))
-    retry_max_delay: float = field(default_factory=lambda: float(os.getenv("elysiactl_RETRY_MAX_DELAY", "60.0")))
+    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_RETRY_ATTEMPTS", "3")))
+    retry_base_delay: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_RETRY_BASE_DELAY", "1.0")))
+    retry_max_delay: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_RETRY_MAX_DELAY", "60.0")))
     
     # Circuit breaker settings
-    circuit_breaker_failure_threshold: int = field(default_factory=lambda: int(os.getenv("elysiactl_CB_FAILURE_THRESHOLD", "5")))
-    circuit_breaker_recovery_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_CB_RECOVERY_TIMEOUT", "30.0")))
+    circuit_breaker_failure_threshold: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_CB_FAILURE_THRESHOLD", "5")))
+    circuit_breaker_recovery_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_CB_RECOVERY_TIMEOUT", "30.0")))
     
     # Error tracking
-    error_history_limit: int = field(default_factory=lambda: int(os.getenv("elysiactl_ERROR_HISTORY_LIMIT", "100")))
-    log_level: str = field(default_factory=lambda: os.getenv("elysiactl_LOG_LEVEL", "INFO"))
+    error_history_limit: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_ERROR_HISTORY_LIMIT", "100")))
+    log_level: str = field(default_factory=lambda: os.getenv("ELYSIACTL_LOG_LEVEL", "INFO"))
 ```
 
 This phase transforms elysiactl from a basic tool into a production-ready system that can handle enterprise-scale deployments with robust error recovery, comprehensive monitoring, and graceful degradation under failure conditions.

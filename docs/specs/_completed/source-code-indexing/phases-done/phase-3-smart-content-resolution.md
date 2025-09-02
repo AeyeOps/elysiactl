@@ -559,21 +559,21 @@ class ProcessingConfig:
     # ... existing fields ...
     
     # mgit tier thresholds (for analysis compatibility)
-    mgit_tier_1_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_1_MAX", "10000")))      # 10KB
-    mgit_tier_2_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_2_MAX", "100000")))    # 100KB  
-    mgit_tier_3_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_3_MAX", "10000000")))  # 10MB
+    mgit_tier_1_max: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MGIT_TIER_1_MAX", "10000")))      # 10KB
+    mgit_tier_2_max: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MGIT_TIER_2_MAX", "100000")))    # 100KB  
+    mgit_tier_3_max: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MGIT_TIER_3_MAX", "10000000")))  # 10MB
     
     # Content analysis settings
-    use_mime_detection: bool = field(default_factory=lambda: os.getenv("elysiactl_USE_MIME_DETECTION", "true").lower() == "true")
-    analyze_vendor_dirs: bool = field(default_factory=lambda: os.getenv("elysiactl_ANALYZE_VENDOR_DIRS", "true").lower() == "true")
+    use_mime_detection: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_USE_MIME_DETECTION", "true").lower() == "true")
+    analyze_vendor_dirs: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_ANALYZE_VENDOR_DIRS", "true").lower() == "true")
     
     # Content resolution timeouts
-    file_read_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_FILE_READ_TIMEOUT", "30.0")))
-    base64_decode_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_BASE64_TIMEOUT", "10.0")))
+    file_read_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_FILE_READ_TIMEOUT", "30.0")))
+    base64_decode_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_BASE64_TIMEOUT", "10.0")))
     
     # Custom patterns (comma-separated)
-    custom_skip_paths: str = field(default_factory=lambda: os.getenv("elysiactl_CUSTOM_SKIP_PATHS", ""))
-    custom_binary_extensions: str = field(default_factory=lambda: os.getenv("elysiactl_CUSTOM_BINARY_EXTENSIONS", ""))
+    custom_skip_paths: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CUSTOM_SKIP_PATHS", ""))
+    custom_binary_extensions: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CUSTOM_BINARY_EXTENSIONS", ""))
 ```
 
 This phase refocuses elysiactl as an efficient consumer of mgit's smart content strategy rather than a content strategy creator. It provides analysis tools to understand content distribution and optimizes the consumption pipeline for mgit's three-tier format while maintaining backward compatibility with Phase 2 file path inputs.

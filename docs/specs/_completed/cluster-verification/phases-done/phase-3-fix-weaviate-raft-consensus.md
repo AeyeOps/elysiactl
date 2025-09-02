@@ -10,13 +10,13 @@ The current Weaviate cluster appears healthy but lacks true replication due to m
 
 ### What's Happening
 1. **Gossip Cluster vs RAFT Cluster**: Nodes can see each other (gossip works) but can't replicate metadata (RAFT broken)
-2. **Sharding Without Replication**: ELYSIA_CONFIG__ has 3 shards but replication_factor=1 in practice
+2. **Sharding Without Replication**: ELYSIACTL_CONFIG__ has 3 shards but replication_factor=1 in practice
 3. **Missing Configuration**: docker-compose.yaml lacks CLUSTER_DATA_BIND_PORT and RAFT settings
 4. **Misleading Schema**: Collections show replication_factor=3 but it's not honored without RAFT
 
 ### Evidence from Logs
 - `"async replication disabled on shard"` - No replication despite schema settings
-- `"local index \"ELYSIA_CONFIG__\" not found"` on nodes 2 and 3
+- `"local index \"ELYSIACTL_CONFIG__\" not found"` on nodes 2 and 3
 - `"cannot achieve consistency level \"QUORUM\": read error"` - Can't read from replicas that don't exist
 - All shards (W0komeZfLFXE, vVAA9Z7uzflt, USzx9SAQQLTg) only exist on node1
 
@@ -189,11 +189,11 @@ recreate_collection() {
   # Create with proper replication
   echo "  Creating with replication factor=3..."
   
-  if [ "$COLLECTION" = "ELYSIA_CONFIG__" ]; then
+  if [ "$COLLECTION" = "ELYSIACTL_CONFIG__" ]; then
     curl -s -X POST http://localhost:8080/v1/schema \
       -H "Content-Type: application/json" \
       -d '{
-        "class": "ELYSIA_CONFIG__",
+        "class": "ELYSIACTL_CONFIG__",
         "properties": [
           {"name": "config_key", "dataType": ["text"]},
           {"name": "config_value", "dataType": ["text"]}
@@ -206,11 +206,11 @@ recreate_collection() {
           "desiredCount": 3
         }
       }'
-  elif [ "$COLLECTION" = "ELYSIA_FEEDBACK__" ]; then
+  elif [ "$COLLECTION" = "ELYSIACTL_FEEDBACK__" ]; then
     curl -s -X POST http://localhost:8080/v1/schema \
       -H "Content-Type: application/json" \
       -d '{
-        "class": "ELYSIA_FEEDBACK__",
+        "class": "ELYSIACTL_FEEDBACK__",
         "properties": [
           {"name": "feedback_id", "dataType": ["text"]},
           {"name": "content", "dataType": ["text"]},
@@ -224,11 +224,11 @@ recreate_collection() {
           "desiredCount": 3
         }
       }'
-  elif [ "$COLLECTION" = "ELYSIA_METADATA__" ]; then
+  elif [ "$COLLECTION" = "ELYSIACTL_METADATA__" ]; then
     curl -s -X POST http://localhost:8080/v1/schema \
       -H "Content-Type: application/json" \
       -d '{
-        "class": "ELYSIA_METADATA__",
+        "class": "ELYSIACTL_METADATA__",
         "properties": [
           {"name": "meta_key", "dataType": ["text"]},
           {"name": "meta_value", "dataType": ["text"]},
@@ -248,16 +248,16 @@ recreate_collection() {
 }
 
 # Process system collections
-recreate_collection "ELYSIA_CONFIG__"
-recreate_collection "ELYSIA_FEEDBACK__"
-recreate_collection "ELYSIA_METADATA__"
+recreate_collection "ELYSIACTL_CONFIG__"
+recreate_collection "ELYSIACTL_FEEDBACK__"
+recreate_collection "ELYSIACTL_METADATA__"
 
 echo ""
 echo "Verifying replication status..."
 sleep 2
 
 # Verify each collection
-for COLLECTION in ELYSIA_CONFIG__ ELYSIA_FEEDBACK__ ELYSIA_METADATA__; do
+for COLLECTION in ELYSIACTL_CONFIG__ ELYSIACTL_FEEDBACK__ ELYSIACTL_METADATA__; do
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/v1/schema/$COLLECTION)
   if [ "$STATUS" = "200" ]; then
     FACTOR=$(curl -s http://localhost:8080/v1/schema/$COLLECTION | jq -r '.replicationConfig.factor // 1')
@@ -333,7 +333,7 @@ uv run elysiactl health --cluster
 ```bash
 # Current broken state
 uv run elysiactl health --cluster
-# Shows ELYSIA_CONFIG__ as "1/3 nodes" (incorrect)
+# Shows ELYSIACTL_CONFIG__ as "1/3 nodes" (incorrect)
 
 # Check logs for replication errors
 docker logs weaviate-node1-1 2>&1 | grep -i "replication\|raft"
@@ -351,22 +351,22 @@ curl -s http://localhost:8080/v1/nodes | jq '.nodes | length'
 # Should return: 3
 
 # Check collection replication
-curl -s http://localhost:8080/v1/schema/ELYSIA_CONFIG__ | jq '.replicationConfig'
+curl -s http://localhost:8080/v1/schema/ELYSIACTL_CONFIG__ | jq '.replicationConfig'
 # Should show: {"factor": 3, "asyncEnabled": true}
 
 # Verify with elysiactl
 uv run elysiactl health --cluster
-# Should show ELYSIA_CONFIG__ properly replicated
+# Should show ELYSIACTL_CONFIG__ properly replicated
 
 # Test data insertion triggers replication
 curl -X POST http://localhost:8080/v1/objects \
   -H "Content-Type: application/json" \
-  -d '{"class": "ELYSIA_CONFIG__", "properties": {"config_key": "test", "config_value": "test"}}'
+  -d '{"class": "ELYSIACTL_CONFIG__", "properties": {"config_key": "test", "config_value": "test"}}'
 
 # Verify data exists on all nodes
 for port in 8080 8081 8082; do
   echo "Node $port:"
-  curl -s http://localhost:$port/v1/objects/ELYSIA_CONFIG__ | jq '.objects | length'
+  curl -s http://localhost:$port/v1/objects/ELYSIACTL_CONFIG__ | jq '.objects | length'
 done
 # All should show: 1
 ```

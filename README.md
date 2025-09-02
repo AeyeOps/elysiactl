@@ -87,10 +87,10 @@ export MGIT_UPDATE_INTERVAL="3600"  # 1 hour
 
 #### Step 2: Configure Elysia Control
 ```bash
-export ELYSIA_CONTROL_HOST="localhost"
-export ELYSIA_CONTROL_PORT="8000"
-export ELYSIA_INGEST_BATCH_SIZE="50"
-export ELYSIA_DIFF_THRESHOLD="100"  # Min changes to trigger processing
+export WCD_URL="http://localhost:8080"
+export ELYSIACTL_URL="http://localhost:8000"
+export ELYSIACTL_BATCH_SIZE="50"
+export ELYSIACTL_DIFF_THRESHOLD="100"  # Min changes to trigger processing
 ```
 
 #### Step 3: Set Up Cron Job
@@ -134,12 +134,12 @@ MGIT_BRANCH=main
 #### elysia-config.env
 ```bash
 # Elysia Control Configuration
-ELYSIA_HOST=localhost
-ELYSIA_PORT=8000
-ELYSIA_API_KEY=your-api-key-here
-ELYSIA_BATCH_SIZE=50
-ELYSIA_TIMEOUT=300
-ELYSIA_RETRY_ATTEMPTS=3
+ELYSIACTL_HOST=localhost
+ELYSIACTL_PORT=8000
+ELYSIACTL_API_KEY=your-api-key-here
+ELYSIACTL_BATCH_SIZE=50
+ELYSIACTL_TIMEOUT=300
+ELYSIACTL_MAX_RETRY_ATTEMPTS=3
 ```
 
 ### Scripts
@@ -170,7 +170,7 @@ log "Updating MGIT index..."
 # Step 2: Check for changes
 CHANGES=$(find "$MGIT_INDEX_PATH" -name "*.diff" -newer "$MGIT_INDEX_PATH/.last_sync" | wc -l)
 
-if [ "$CHANGES" -gt "$ELYSIA_DIFF_THRESHOLD" ]; then
+if [ "$CHANGES" -gt "$ELYSIACTL_DIFF_THRESHOLD" ]; then
     log "Found $CHANGES changes, triggering Elysia ingestion..."
 
     # Step 3: Run Elysia ingestion
@@ -181,7 +181,7 @@ if [ "$CHANGES" -gt "$ELYSIA_DIFF_THRESHOLD" ]; then
 
     log "Sync process completed successfully"
 else
-    log "Only $CHANGES changes found (threshold: $ELYSIA_DIFF_THRESHOLD), skipping ingestion"
+    log "Only $CHANGES changes found (threshold: $ELYSIACTL_DIFF_THRESHOLD), skipping ingestion"
 fi
 ```
 
@@ -228,15 +228,15 @@ find "$MGIT_INDEX_PATH/diffs/" -name "*.json" -type f | while read -r diff_file;
     REPO_PATH="$MGIT_INDEX_PATH/repos/$REPO_NAME"
 
     # Ingest into Elysia Control
-    curl -X POST "$ELYSIA_HOST:$ELYSIA_PORT/api/ingest/repo" \
-         -H "Authorization: Bearer $ELYSIA_API_KEY" \
+    curl -X POST "$ELYSIACTL_HOST:$ELYSIACTL_PORT/api/ingest/repo" \
+         -H "Authorization: Bearer $ELYSIACTL_API_KEY" \
          -H "Content-Type: application/json" \
          -d @- << EOF
 {
     "repo_path": "$REPO_PATH",
     "repo_name": "$REPO_NAME",
     "source": "mgit-index",
-    "batch_size": $ELYSIA_BATCH_SIZE,
+    "batch_size": $ELYSIACTL_BATCH_SIZE,
     "generate_embeddings": true,
     "create_collections": true
 }
@@ -294,7 +294,7 @@ tail -f /logs/mgit-elysia-sync.log
 mgit status --index /data/mgit-index
 
 # Check Elysia Control health
-curl $ELYSIA_HOST:$ELYSIA_PORT/health
+curl $ELYSIACTL_HOST:$ELYSIACTL_PORT/health
 ```
 
 #### Common Issues
@@ -314,7 +314,7 @@ ls -la /data/mgit-index/.git/FETCH_HEAD
 tail -f /logs/elysia-control.log
 
 # Test API connection
-curl -H "Authorization: Bearer $ELYSIA_API_KEY" $ELYSIA_HOST:$ELYSIA_PORT/api/status
+curl -H "Authorization: Bearer $ELYSIACTL_API_KEY" $ELYSIACTL_HOST:$ELYSIACTL_PORT/api/status
 ```
 
 **Issue: Cron job not running**
@@ -346,13 +346,13 @@ MGIT_MAX_CONCURRENT=5
 #### Elysia Control Settings
 ```bash
 # Larger batches for better throughput
-ELYSIA_BATCH_SIZE=100
+ELYSIACTL_BATCH_SIZE=100
 
 # Smaller batches for memory efficiency
-ELYSIA_BATCH_SIZE=25
+ELYSIACTL_BATCH_SIZE=25
 
 # Adjust timeout for large repos
-ELYSIA_TIMEOUT=600
+ELYSIACTL_TIMEOUT=600
 ```
 
 ### Quick Commands Reference
@@ -416,7 +416,7 @@ elysiactl provides comprehensive cluster verification to ensure proper replicati
 - **Replication Factor Validation**: Verifies collections are replicated according to configuration
 - **Node Distribution**: Ensures shards are properly distributed across all nodes
 - **RAFT Consensus**: Monitors cluster consensus for metadata synchronization
-- **Collection Health**: Validates system collections (ELYSIA_CONFIG__, ELYSIA_FEEDBACK__, ELYSIA_METADATA__)
+- **Collection Health**: Validates system collections (ELYSIACTL_CONFIG__, ELYSIACTL_FEEDBACK__, ELYSIACTL_METADATA__)
 
 ### Repair Operations
 
@@ -578,7 +578,7 @@ Copyright 2025 - Licensed under appropriate terms (to be specified)
 
 When `elysiactl health --cluster` detects replication issues, manual intervention is required. The `--fix` flag was intentionally removed to avoid "magic" fixes that could cause data loss or unexpected behavior.
 
-### Understanding ELYSIA_CONFIG__
+### Understanding ELYSIACTL_CONFIG__
 
 - **Purpose**: Key-value configuration store for Elysia
 - **Schema**: Simple with `config_key` and `config_value` text fields  
@@ -592,7 +592,7 @@ Use Weaviate's shard-level replica movement to copy existing data to other nodes
 
 ```bash
 # 1. Check current shard state
-curl http://localhost:8080/v1/cluster/shards/ELYSIA_CONFIG__
+curl http://localhost:8080/v1/cluster/shards/ELYSIACTL_CONFIG__
 
 # 2. Use replica COPY operations (non-destructive)
 # This increments replication factor per shard while preserving data
@@ -601,14 +601,14 @@ curl http://localhost:8080/v1/cluster/shards/ELYSIA_CONFIG__
 
 #### Method 2: Export/Recreate (Only for Empty Collections)
 
-Since ELYSIA_CONFIG__ is currently empty, this is safe:
+Since ELYSIACTL_CONFIG__ is currently empty, this is safe:
 
 ```bash
 # 1. Export schema
-curl http://localhost:8080/v1/schema/ELYSIA_CONFIG__ > config_schema.json
+curl http://localhost:8080/v1/schema/ELYSIACTL_CONFIG__ > config_schema.json
 
 # 2. Delete collection  
-curl -X DELETE http://localhost:8080/v1/schema/ELYSIA_CONFIG__
+curl -X DELETE http://localhost:8080/v1/schema/ELYSIACTL_CONFIG__
 
 # 3. Edit config_schema.json to ensure:
 #    "replicationConfig": {"factor": 3}
@@ -621,14 +621,14 @@ curl -X POST http://localhost:8080/v1/schema \
 
 ### Creating Missing System Collections
 
-For ELYSIA_FEEDBACK__ and ELYSIA_METADATA__ (should be created by Elysia app):
+For ELYSIACTL_FEEDBACK__ and ELYSIACTL_METADATA__ (should be created by Elysia app):
 
 ```bash
 # Example structure - adjust properties based on Elysia requirements
 curl -X POST http://localhost:8080/v1/schema \
   -H "Content-Type: application/json" \
   -d '{
-    "class": "ELYSIA_FEEDBACK__",
+    "class": "ELYSIACTL_FEEDBACK__",
     "properties": [
       {"name": "feedback_id", "dataType": ["text"]},
       {"name": "content", "dataType": ["text"]},

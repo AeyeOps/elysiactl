@@ -5,8 +5,8 @@ Accepted (2025-01-01)
 
 ## Context
 elysiactl manages multiple Weaviate collections with different purposes:
-- `ELYSIA_CONFIG__`: Configuration storage
-- `ELYSIA_TREES__`: Tree structures
+- `ELYSIACTL_CONFIG__`: Configuration storage
+- `ELYSIACTL_TREES__`: Tree structures
 - `SRC_ENTERPRISE__`: Source code indexing
 
 The double underscore suffix pattern and ALL_CAPS naming emerged organically but needs formalization. We need a consistent naming strategy that:
@@ -29,7 +29,7 @@ Where:
 - **VERSION**: Optional version suffix (v1, v2)
 
 Examples:
-- `ELYSIA_CONFIG__`: Core configuration
+- `ELYSIACTL_CONFIG__`: Core configuration
 - `SRC_ENTERPRISE__`: Enterprise source code
 - `SRC_GITHUB__v2`: GitHub source (versioned)
 

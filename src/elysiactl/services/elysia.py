@@ -5,7 +5,6 @@ import time
 from typing import Dict, Any, Optional, List
 import httpx
 import psutil
-import subprocess
 
 from ..utils.process import (
     run_command_async, run_command, save_pid, load_pid, remove_pid_file,
@@ -14,7 +13,7 @@ from ..utils.process import (
 from ..utils.display import show_progress, print_success, print_error
 from ..config import get_config
 
-ELYSIA_DIR = "/opt/elysia"
+ELYSIACTL_DIR = "/opt/elysia"
 CONDA_ENV = "elysia"
 
 
@@ -22,7 +21,7 @@ class ElysiaService:
     """Manages Elysia AI service."""
     
     def __init__(self):
-        self.work_dir = ELYSIA_DIR
+        self.work_dir = ELYSIACTL_DIR
         self.port = get_config().services.elysia_port
         self.conda_env = CONDA_ENV
     

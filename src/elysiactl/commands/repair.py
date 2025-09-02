@@ -6,7 +6,6 @@ particularly issues with collection replication and distribution across nodes.
 import typer
 import httpx
 import json
-import time
 from datetime import datetime
 from pathlib import Path
 from rich.console import Console
@@ -249,7 +248,7 @@ def config_replication(
                             )
                             # Ignore individual delete errors, we'll recreate the collection anyway
                         
-                        console.print(f"[green]✓[/green] Collection emptied successfully")
+                        console.print("[green]✓[/green] Collection emptied successfully")
                         console.print(f"[dim]  → Data saved to {export_file} for later import[/dim]")
                         
                     except Exception as e:

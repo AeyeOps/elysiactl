@@ -15,11 +15,10 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-from rich import box
 
 from ..config import get_config
 from ..services.performance import get_performance_optimizer
-from ..services.sync import sync_files_from_stdin, SQLiteCheckpointManager, _resolve_content, parse_input_line, sync_files_from_stdin_async
+from ..services.sync import sync_files_from_stdin, SQLiteCheckpointManager, _resolve_content, parse_input_line
 from ..services.error_handling import get_error_handler_with_config
 
 app = typer.Typer(help="Index source code into Weaviate collections")
@@ -408,7 +407,7 @@ def enterprise(
     
     Indexes all repositories matching the configured pattern.
     
-    Use elysiactl_ENTERPRISE_DIR, elysiactl_REPO_PATTERN, elysiactl_EXCLUDE_PATTERN to customize.
+    Use ELYSIACTL_ENTERPRISE_DIR, ELYSIACTL_REPO_PATTERN, ELYSIACTL_EXCLUDE_PATTERN to customize.
     """
     config = get_config()
     if collection is None:
@@ -418,7 +417,7 @@ def enterprise(
     
     if not enterprise_dir.exists():
         console.print(f"[red]✗ Enterprise directory not found at {enterprise_dir}[/red]")
-        console.print(f"[yellow]Set elysiactl_ENTERPRISE_DIR to customize location[/yellow]")
+        console.print("[yellow]Set ELYSIACTL_ENTERPRISE_DIR to customize location[/yellow]")
         raise typer.Exit(1)
     
     # Find all repos matching pattern, excluding obsolete ones
@@ -637,7 +636,7 @@ def errors(
     if summary:
         summary_data = error_handler.get_error_summary()
         
-        console.print(f"\n[bold]Error Summary:[/bold]")
+        console.print("\n[bold]Error Summary:[/bold]")
         console.print(f"  Total errors: {summary_data['total_errors']}")
         
         if summary_data['error_counts']:
@@ -659,7 +658,7 @@ def errors(
         # Circuit breaker status
         cb_states = summary_data['circuit_breaker_states']
         if cb_states:
-            console.print(f"\n[bold]Circuit Breaker Status:[/bold]")
+            console.print("\n[bold]Circuit Breaker Status:[/bold]")
             for operation, status in cb_states.items():
                 state_color = "green" if status['state'] == 'closed' else "red"
                 console.print(f"  {operation}: [{state_color}]{status['state']}[/{state_color}] ({status['failures']} failures)")
@@ -862,7 +861,7 @@ def analyze(
             indexed_files = stats['tier_1_plain'] + stats['tier_2_base64'] + stats['tier_3_reference']
             embedded_files = stats['tier_1_plain'] + stats['tier_2_base64']
             
-            console.print(f"\n[bold]Predicted mgit Behavior:[/bold]")
+            console.print("\n[bold]Predicted mgit Behavior:[/bold]")
             console.print(f"  Total files analyzed: {total_files}")
             console.print(f"  Would be indexed: {indexed_files} ({indexed_files/total_files*100:.1f}%)")
             console.print(f"  Content embedded: {embedded_files} ({embedded_files/total_files*100:.1f}%)")
@@ -956,7 +955,7 @@ def inspect(
             if total_changes > 0:
                 embedded_count = strategy_counts[1] + strategy_counts[2]
                 
-                console.print(f"\n[bold]Summary:[/bold]")
+                console.print("\n[bold]Summary:[/bold]")
                 console.print(f"  Total changes: {total_changes}")
                 console.print(f"  Content embedded: {embedded_count} ({embedded_count/total_changes*100:.1f}%)")
                 console.print(f"  Embedded size: {total_size['embedded']:,} chars")
@@ -973,7 +972,6 @@ def errors(
     reset: Annotated[bool, typer.Option("--reset", help="Reset error statistics")] = False,
 ):
     """Show error statistics and recent failures."""
-    from ..services.error_handling import get_error_handler_with_config
     from rich.table import Table
     
     error_handler = get_error_handler_with_config()
@@ -1051,7 +1049,6 @@ def perf(
     batch_size: Annotated[int, typer.Option("--batch-size", help="Batch size for processing")] = 100,
 ):
     """Performance monitoring and tuning commands."""
-    from ..services.performance import get_performance_optimizer
     
     if show_config:
         config = get_performance_optimizer().get_performance_summary()
@@ -1103,7 +1100,7 @@ def perf(
             duration = time.time() - start_time
             files_per_second = len(test_files) / duration
             
-            console.print(f"\n[bold]Benchmark Results:[/bold]")
+            console.print("\n[bold]Benchmark Results:[/bold]")
             console.print(f"  Files processed: {len(test_files)}")
             console.print(f"  Duration: {duration:.2f}s") 
             console.print(f"  Files/second: {files_per_second:.1f}")
@@ -1130,16 +1127,16 @@ def tune(
     # Estimate optimal batch size
     optimal_batch_size = max(50, min(200, target_files // (optimal_workers * 10)))
     
-    console.print(f"\n[bold]Recommended Configuration:[/bold]")
+    console.print("\n[bold]Recommended Configuration:[/bold]")
     console.print(f"  Workers: {optimal_workers}")
     console.print(f"  Batch size: {optimal_batch_size}")
     console.print(f"  Expected throughput: {target_files_per_second:.1f} files/second")
     
     # Environment variable suggestions
-    console.print(f"\n[bold]Environment Variables:[/bold]")
-    console.print(f"  export elysiactl_MAX_WORKERS={optimal_workers}")
-    console.print(f"  export elysiactl_BATCH_SIZE={optimal_batch_size}")
-    console.print(f"  export elysiactl_MAX_CONNECTIONS=20")
+    console.print("\n[bold]Environment Variables:[/bold]")
+    console.print(f"  export ELYSIACTL_MAX_WORKERS={optimal_workers}")
+    console.print(f"  export ELYSIACTL_BATCH_SIZE={optimal_batch_size}")
+    console.print("  export ELYSIACTL_MAX_CONNECTIONS=20")
 
 
 if __name__ == "__main__":

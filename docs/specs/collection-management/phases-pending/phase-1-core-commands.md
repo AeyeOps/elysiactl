@@ -79,7 +79,7 @@ def remove_collection(
 **Safety Implementation**:
 ```python
 PROTECTED_PATTERNS = [
-    "ELYSIA_*",      # Elysia system collections
+    "ELYSIACTL_*",      # Elysia system collections
     "*_SYSTEM",      # System suffix
     ".internal*",    # Internal prefix
 ]
@@ -271,7 +271,7 @@ $ elysiactl col ls
 Collections (3 total)
 ────────────────────
 Name                 Objects  Replicas  Shards  Status
-ELYSIA_CONFIG__      0        3         1       READY
+ELYSIACTL_CONFIG__      0        3         1       READY
 UserDocuments        1,250    3         2       READY  
 ProductCatalog       45,320   3         4       READY
 ```

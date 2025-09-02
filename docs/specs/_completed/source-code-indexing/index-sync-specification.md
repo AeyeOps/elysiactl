@@ -220,15 +220,15 @@ class SyncConfig:
     
     # Sync behavior
     auto_delete: bool = field(default_factory=lambda: 
-        os.getenv("elysiactl_SYNC_AUTO_DELETE", "false").lower() == "true")
+        os.getenv("ELYSIACTL_SYNC_AUTO_DELETE", "false").lower() == "true")
     
     # Change detection
     state_file: str = field(default_factory=lambda: 
-        os.getenv("elysiactl_STATE_FILE", "~/.elysiactl/last_sync.json"))
+        os.getenv("ELYSIACTL_STATE_FILE", "~/.elysiactl/last_sync.json"))
     
     # Performance tuning  
     sync_batch_size: int = field(default_factory=lambda: 
-        int(os.getenv("elysiactl_SYNC_BATCH_SIZE", "50")))
+        int(os.getenv("ELYSIACTL_SYNC_BATCH_SIZE", "50")))
 ```
 
 ## Error Handling

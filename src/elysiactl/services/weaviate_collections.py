@@ -2,13 +2,10 @@
 
 import httpx
 import fnmatch
-import json
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import List, Dict, Any
 from pathlib import Path
 
 from ..config import get_config
-from ..services.weaviate import WeaviateService
 
 
 class CollectionError(Exception):

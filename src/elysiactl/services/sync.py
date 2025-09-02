@@ -2,26 +2,23 @@
 
 import sys
 import json
-import base64
 import uuid
 import hashlib
 import sqlite3
 import os
-import asyncio
 from pathlib import Path
 from contextlib import contextmanager
-from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Tuple, Any, AsyncIterator
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict, List, Any, AsyncIterator
 
-import httpx
 from rich.console import Console
 
 from ..config import get_config
 from ..services.weaviate import WeaviateService
 from ..services.embedding import EmbeddingService
 from .content_resolver import ContentResolver
-from .performance import get_performance_optimizer, PerformanceMetrics
-from .error_handling import get_error_handler_with_config
+from .performance import get_performance_optimizer
+from .error_handling import get_error_handler_with_config, get_error_handler, ErrorContext
 
 console = Console()
 content_resolver = ContentResolver()
@@ -113,7 +110,7 @@ class SQLiteCheckpointManager:
     
     def start_run(self, collection_name: str, dry_run: bool = False, input_source: str = "stdin") -> str:
         """Start a new sync run and return run_id."""
-        run_id = f"sync_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}_{uuid.uuid4().hex[:8]}"
+        run_id = f"sync_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.getpid()}_{uuid.uuid4().hex[:8]}"
         
         with self._get_connection() as conn:
             conn.execute("""
@@ -251,7 +248,7 @@ class SQLiteCheckpointManager:
         if keep_days is None:
             keep_days = config.processing.checkpoint_cleanup_days
         
-        cutoff = datetime.utcnow() - timedelta(days=keep_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=keep_days)
         
         with self._get_connection() as conn:
             # Get old run IDs
@@ -309,8 +306,21 @@ def parse_input_line(line: str, line_number: int) -> Optional[Dict]:
     try:
         # Try parsing as JSON first (primary format)
         data = json.loads(line)
-        data['line'] = line_number  # Add line number for tracking
-        return data
+        # Ensure it's a dict, not a string
+        if isinstance(data, str):
+            # If it's a string, treat it as a file path
+            return {
+                'line': line_number,
+                'path': data,
+                'op': 'modify',
+                'repo': None
+            }
+        elif isinstance(data, dict):
+            data['line'] = line_number  # Add line number for tracking
+            return data
+        else:
+            # Handle other types
+            return None
     except json.JSONDecodeError:
         # Fallback: Treat as plain file path for testing
         return {
@@ -388,7 +398,7 @@ async def _build_weaviate_object(change: Dict, collection: str) -> Optional[Dict
             "extension": Path(path).suffix or "none",
             "size_bytes": len(content.encode('utf-8')),
             "line_count": content.count('\n') + 1,
-            "last_modified": datetime.utcnow().isoformat() + "Z",
+            "last_modified": datetime.now(timezone.utc).isoformat() + "Z",
             "content_hash": hashlib.sha256(content.encode()).hexdigest(),
             "relative_path": str(Path(path).name)
         }
@@ -544,11 +554,10 @@ async def _process_change_inner(
             metadata={'content_length': len(content)}
         )
         
-        # Mock embedding for now since EmbeddingService isn't fully implemented
-        # In production: embedding_vector = await error_handler.execute_with_retry(
-        #     embedding.generate_embedding, embedding_context, content
-        # )
-        embedding_vector = None  # Placeholder
+        # Generate embedding (use fallback if primary method fails)
+        embedding_vector = await error_handler.execute_with_retry(
+            embedding.embed_text_with_fallback, embedding_context, content
+        )
         
         # Index in Weaviate with retry
         weaviate_context = ErrorContext(
@@ -558,11 +567,10 @@ async def _process_change_inner(
             metadata={'collection': collection, 'has_embedding': bool(embedding_vector)}
         )
         
-        # Mock Weaviate indexing for now
-        # In production: success = await error_handler.execute_with_retry(
-        #     weaviate.index_file, weaviate_context, file_path, content, collection, embedding_vector
-        # )
-        success = True  # Placeholder
+        # Index the file in Weaviate
+        success = await error_handler.execute_with_retry(
+            weaviate.index_file, weaviate_context, file_path, content, collection, embedding_vector
+        )
         
         if success:
             console.print(f"[green]{operation.upper()}: {file_path}[/green]")
@@ -615,9 +623,8 @@ async def process_index_batch(changes: List[Dict[str, Any]],
                 })
                 continue
             
-            # Generate embedding (placeholder for now)
-            # In production: embedding_vector = await embedding.generate_embedding(content)
-            embedding_vector = None  # Placeholder
+            # Generate embedding (use deterministic fallback for consistent results)
+            embedding_vector = await embedding.embed_text_with_fallback(content)
             
             # Prepare for batch
             import uuid
@@ -630,7 +637,7 @@ async def process_index_batch(changes: List[Dict[str, Any]],
                 'properties': {
                     'path': file_path,
                     'content': content,
-                    'last_indexed': datetime.utcnow().isoformat(),
+                    'last_indexed': datetime.now(timezone.utc).isoformat(),
                     'size_bytes': len(content.encode('utf-8'))
                 },
                 'vector': embedding_vector
@@ -659,6 +666,10 @@ async def process_index_batch(changes: List[Dict[str, Any]],
             
             # Create result objects
             for i, (op, success) in enumerate(zip(batch_operations, batch_results)):
+                print(f"DEBUG: op type: {type(op)}, success type: {type(success)}")
+                if not isinstance(op, dict):
+                    print(f"DEBUG: op is not dict: {repr(op)}")
+                    continue
                 results.append({
                     'success': success,
                     'operation': op['operation'], 
@@ -841,11 +852,12 @@ async def _sync_files_from_stdin_async(run_id, collection, dry_run, verbose, use
             results_count = 0
             async for result_batch in performance_optimizer.optimize_sync_operation(
                 changes_generator,
-                lambda changes: process_change_batch(changes, weaviate, embedding, collection, dry_run)
+                lambda change: process_change_batch([change], weaviate, embedding, collection, dry_run)
             ):
                 # Update checkpoint for batch
                 for result in result_batch:
-                    if result:
+                    print(f"DEBUG: checkpoint result type: {type(result)}, value: {repr(result)}")
+                    if result and isinstance(result, dict):
                         results_count += 1
                         # Update checkpoint based on result
                         if result.get('success'):
@@ -864,20 +876,44 @@ async def _sync_files_from_stdin_async(run_id, collection, dry_run, verbose, use
         else:
             # Fall back to sequential processing
             console.print("[yellow]Using sequential processing (parallel disabled)[/yellow]")
-            # Sequential processing would go here
+            
+            # Process stdin lines sequentially
+            stdin_lines = list(enumerate(sys.stdin, 1))
+            results_count = 0
+            
+            for line_number, line in stdin_lines:
+                change = parse_input_line(line, line_number)
+                if change:
+                    # Process the change
+                    result = await process_single_change(change, weaviate, embedding, collection, dry_run)
+                    
+                    results_count += 1
+                    if result:
+                        checkpoint.mark_line_completed(
+                            run_id, results_count, 
+                            change.get('path', ''), 
+                            change.get('op', 'modify')
+                        )
+                    else:
+                        checkpoint.mark_line_failed(
+                            run_id, results_count,
+                            change.get('path', ''),
+                            change.get('op', 'modify'),
+                            'Processing failed'
+                        )
         
         # Complete run and show performance summary
         stats = checkpoint.complete_run(run_id)
         perf_summary = performance_optimizer.get_performance_summary()
         
-        console.print(f"\n[bold]Sync completed:[/bold]")
+        console.print("\n[bold]Sync completed:[/bold]")
         console.print(f"  Run ID: {run_id}")
         console.print(f"  Success: {stats['success_count']}")
         console.print(f"  Errors: {stats['error_count']}")
         console.print(f"  Total: {stats['processed_lines']}")
         
         # Performance metrics
-        console.print(f"\n[bold]Performance:[/bold]")
+        console.print("\n[bold]Performance:[/bold]")
         console.print(f"  Files/second: {perf_summary['files_per_second']:.1f}")
         console.print(f"  Throughput: {perf_summary['throughput_mbps']:.2f} MB/s") 
         console.print(f"  Success rate: {perf_summary['success_rate']:.1f}%")

@@ -32,8 +32,8 @@ Options:
     -h, --help         Show this help message
 
 Environment Variables:
-    elysiactl_TEST_WCD_URL    URL for test Weaviate instance (default: http://localhost:8080)
-    elysiactl_TEST_COLLECTION      Test collection name (default: TEST_COLLECTION)
+    ELYSIACTL_TEST_WCD_URL    URL for test Weaviate instance (default: http://localhost:8080)
+    ELYSIACTL_TEST_COLLECTION      Test collection name (default: TEST_COLLECTION)
 
 Examples:
     $0                              # Run basic integration tests
@@ -87,17 +87,17 @@ if ! command -v uv &> /dev/null; then
 fi
 
 # Set test environment
-export elysiactl_DEBUG=true
-export elysiactl_BATCH_SIZE=10
-export elysiactl_MAX_WORKERS=2
-export elysiactl_WCD_URL=${elysiactl_TEST_WCD_URL:-"http://localhost:8080"}
-export elysiactl_DEFAULT_SOURCE_COLLECTION=${elysiactl_TEST_COLLECTION:-"TEST_COLLECTION"}
+export ELYSIACTL_DEBUG=true
+export ELYSIACTL_BATCH_SIZE=10
+export ELYSIACTL_MAX_WORKERS=2
+export ELYSIACTL_WCD_URL=${ELYSIACTL_TEST_WCD_URL:-"http://localhost:8080"}
+export ELYSIACTL_DEFAULT_SOURCE_COLLECTION=${ELYSIACTL_TEST_COLLECTION:-"TEST_COLLECTION"}
 
 echo "Test environment:"
-echo "  Weaviate URL: $elysiactl_WCD_URL"
-echo "  Collection: $elysiactl_DEFAULT_SOURCE_COLLECTION"
-echo "  Workers: $elysiactl_MAX_WORKERS"
-echo "  Batch Size: $elysiactl_BATCH_SIZE"
+echo "  Weaviate URL: $ELYSIACTL_WCD_URL"
+echo "  Collection: $ELYSIACTL_DEFAULT_SOURCE_COLLECTION"
+echo "  Workers: $ELYSIACTL_MAX_WORKERS"
+echo "  Batch Size: $ELYSIACTL_BATCH_SIZE"
 
 # Build pytest command
 PYTEST_CMD="uv run pytest"

@@ -1,10 +1,10 @@
-# Phase 1: Fix ELYSIA_CONFIG__ Replication
+# Phase 1: Fix ELYSIACTL_CONFIG__ Replication
 
 ## Objective
-Recreate ELYSIA_CONFIG__ collection with proper replication factor to ensure it's distributed across all three Weaviate nodes.
+Recreate ELYSIACTL_CONFIG__ collection with proper replication factor to ensure it's distributed across all three Weaviate nodes.
 
 ## Problem Summary
-The ELYSIA_CONFIG__ collection has replication factor=3 configured but only exists on node 8080 (port). This creates a single point of failure. The collection is currently empty, making it safe to recreate.
+The ELYSIACTL_CONFIG__ collection has replication factor=3 configured but only exists on node 8080 (port). This creates a single point of failure. The collection is currently empty, making it safe to recreate.
 
 ## Implementation Details
 
@@ -26,15 +26,15 @@ app = typer.Typer()
 
 @app.command()
 def config_replication():
-    """Fix ELYSIA_CONFIG__ replication by recreating with proper factor."""
+    """Fix ELYSIACTL_CONFIG__ replication by recreating with proper factor."""
     weaviate = WeaviateService()
     
     # Step 1: Export current schema
     try:
-        response = httpx.get("http://localhost:8080/v1/schema/ELYSIA_CONFIG__")
+        response = httpx.get("http://localhost:8080/v1/schema/ELYSIACTL_CONFIG__")
         response.raise_for_status()
         schema = response.json()
-        console.print("[green]✓[/green] Exported ELYSIA_CONFIG__ schema")
+        console.print("[green]✓[/green] Exported ELYSIACTL_CONFIG__ schema")
     except httpx.HTTPError as e:
         console.print(f"[red]Failed to export schema: {e}[/red]")
         raise typer.Exit(1)
@@ -47,7 +47,7 @@ def config_replication():
                 "query": """
                 {
                     Aggregate {
-                        ELYSIA_CONFIG__ {
+                        ELYSIACTL_CONFIG__ {
                             meta {
                                 count
                             }
@@ -58,7 +58,7 @@ def config_replication():
             }
         )
         check_response.raise_for_status()
-        count = check_response.json()["data"]["Aggregate"]["ELYSIA_CONFIG__"][0]["meta"]["count"]
+        count = check_response.json()["data"]["Aggregate"]["ELYSIACTL_CONFIG__"][0]["meta"]["count"]
         
         if count > 0:
             console.print(f"[yellow]⚠ Collection has {count} records. Aborting to prevent data loss.[/yellow]")
@@ -71,9 +71,9 @@ def config_replication():
     
     # Step 3: Delete existing collection
     try:
-        delete_response = httpx.delete("http://localhost:8080/v1/schema/ELYSIA_CONFIG__")
+        delete_response = httpx.delete("http://localhost:8080/v1/schema/ELYSIACTL_CONFIG__")
         delete_response.raise_for_status()
-        console.print("[green]✓[/green] Deleted existing ELYSIA_CONFIG__ collection")
+        console.print("[green]✓[/green] Deleted existing ELYSIACTL_CONFIG__ collection")
     except httpx.HTTPError as e:
         console.print(f"[red]Failed to delete collection: {e}[/red]")
         raise typer.Exit(1)
@@ -89,7 +89,7 @@ def config_replication():
             timeout=30.0
         )
         create_response.raise_for_status()
-        console.print("[green]✓[/green] Recreated ELYSIA_CONFIG__ with replication factor=3")
+        console.print("[green]✓[/green] Recreated ELYSIACTL_CONFIG__ with replication factor=3")
     except httpx.HTTPError as e:
         console.print(f"[red]Failed to recreate collection: {e}[/red]")
         console.print("Schema saved to elysia_config_backup.json for manual recovery")
@@ -102,7 +102,7 @@ def config_replication():
     nodes_with_collection = []
     for port in [8080, 8081, 8082]:
         try:
-            verify_response = httpx.get(f"http://localhost:{port}/v1/schema/ELYSIA_CONFIG__")
+            verify_response = httpx.get(f"http://localhost:{port}/v1/schema/ELYSIACTL_CONFIG__")
             if verify_response.status_code == 200:
                 nodes_with_collection.append(port)
                 console.print(f"  [green]✓[/green] Node {port}: Collection present")
@@ -112,7 +112,7 @@ def config_replication():
             console.print(f"  [yellow]⚠[/yellow] Node {port}: Cannot connect")
     
     if len(nodes_with_collection) == 3:
-        console.print("\n[bold green]SUCCESS: ELYSIA_CONFIG__ is now properly replicated across all nodes![/bold green]")
+        console.print("\n[bold green]SUCCESS: ELYSIACTL_CONFIG__ is now properly replicated across all nodes![/bold green]")
     else:
         console.print(f"\n[bold yellow]PARTIAL: Collection exists on {len(nodes_with_collection)}/3 nodes[/bold yellow]")
         console.print("Run 'elysiactl health --cluster' to check full status")
@@ -182,7 +182,7 @@ app.add_typer(repair_app, name="repair", help="Repair cluster issues")
 uv run elysiactl status
 
 # Verify the issue exists
-uv run elysiactl health --cluster | grep "ELYSIA_CONFIG__"
+uv run elysiactl health --cluster | grep "ELYSIACTL_CONFIG__"
 # Should show: "1/3 nodes"
 ```
 
@@ -195,20 +195,20 @@ uv run elysiactl repair config-replication
 ### Post-conditions
 ```bash
 # Verify the fix
-uv run elysiactl health --cluster | grep "ELYSIA_CONFIG__"
+uv run elysiactl health --cluster | grep "ELYSIACTL_CONFIG__"
 # Should show: "3/3 nodes" or "factor=3 ✓"
 
 # Check each node directly
-curl -s http://localhost:8080/v1/schema | grep ELYSIA_CONFIG__
-curl -s http://localhost:8081/v1/schema | grep ELYSIA_CONFIG__
-curl -s http://localhost:8082/v1/schema | grep ELYSIA_CONFIG__
+curl -s http://localhost:8080/v1/schema | grep ELYSIACTL_CONFIG__
+curl -s http://localhost:8081/v1/schema | grep ELYSIACTL_CONFIG__
+curl -s http://localhost:8082/v1/schema | grep ELYSIACTL_CONFIG__
 ```
 
 ## Success Criteria
 - [ ] `repair config-replication` command executes without errors
-- [ ] ELYSIA_CONFIG__ exists on all three nodes (8080, 8081, 8082)
+- [ ] ELYSIACTL_CONFIG__ exists on all three nodes (8080, 8081, 8082)
 - [ ] Collection has replication factor=3
-- [ ] `elysiactl health --cluster` shows no replication issues for ELYSIA_CONFIG__
+- [ ] `elysiactl health --cluster` shows no replication issues for ELYSIACTL_CONFIG__
 - [ ] Command safely aborts if collection has data
 - [ ] Backup schema is saved if recreation fails
 
@@ -219,7 +219,7 @@ If the repair fails:
 3. The original collection is only deleted if it's empty, preventing data loss
 
 ## Notes
-- This is a safe operation because ELYSIA_CONFIG__ is currently empty
+- This is a safe operation because ELYSIACTL_CONFIG__ is currently empty
 - The command includes safety checks to prevent data loss
 - Creates a focused repair command rather than generic "fix everything"
 - Follows the "explicit over magic" principle from ADR-001

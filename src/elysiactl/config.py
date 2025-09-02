@@ -112,72 +112,72 @@ class ProcessingConfig:
     """Configuration for processing limits and performance tuning."""
     
     # Batch processing
-    batch_size: int = field(default_factory=lambda: int(os.getenv("elysiactl_BATCH_SIZE", "100")))
+    batch_size: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_BATCH_SIZE", "100")))
     
     # File size limits (in bytes)
-    max_file_size: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_FILE_SIZE", "1000000")))  # 1MB
-    max_content_size: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_CONTENT_SIZE", "500000")))  # 500KB
+    max_file_size: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_FILE_SIZE", "1000000")))  # 1MB
+    max_content_size: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_CONTENT_SIZE", "500000")))  # 500KB
     
     # HTTP timeouts (in seconds)
-    short_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_SHORT_TIMEOUT", "5.0")))
-    medium_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_MEDIUM_TIMEOUT", "30.0"))) 
-    long_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_LONG_TIMEOUT", "60.0")))
+    short_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_SHORT_TIMEOUT", "5.0")))
+    medium_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_MEDIUM_TIMEOUT", "30.0"))) 
+    long_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_LONG_TIMEOUT", "60.0")))
     
     # Process timeouts
-    process_timeout: int = field(default_factory=lambda: int(os.getenv("elysiactl_PROCESS_TIMEOUT", "5")))
+    process_timeout: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_PROCESS_TIMEOUT", "5")))
     
     # Checkpoint system settings
-    checkpoint_db_dir: str = field(default_factory=lambda: os.getenv("elysiactl_CHECKPOINT_DB_DIR", "/tmp/elysiactl"))
-    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_RETRY_ATTEMPTS", "3")))
-    checkpoint_cleanup_days: int = field(default_factory=lambda: int(os.getenv("elysiactl_CHECKPOINT_CLEANUP_DAYS", "7")))
-    sqlite_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_SQLITE_TIMEOUT", "30.0")))
+    checkpoint_db_dir: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CHECKPOINT_DB_DIR", "/tmp/elysiactl"))
+    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_RETRY_ATTEMPTS", "3")))
+    checkpoint_cleanup_days: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_CHECKPOINT_CLEANUP_DAYS", "7")))
+    sqlite_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_SQLITE_TIMEOUT", "30.0")))
     
     # mgit tier thresholds (for analysis compatibility)
-    mgit_tier_1_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_1_MAX", "10000")))      # 10KB
-    mgit_tier_2_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_2_MAX", "100000")))    # 100KB  
-    mgit_tier_3_max: int = field(default_factory=lambda: int(os.getenv("elysiactl_MGIT_TIER_3_MAX", "10000000")))  # 10MB
+    mgit_tier_1_max: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MGIT_TIER_1_MAX", "10000")))      # 10KB
+    mgit_tier_2_max: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MGIT_TIER_2_MAX", "100000")))    # 100KB  
+    mgit_tier_3_max: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MGIT_TIER_3_MAX", "10000000")))  # 10MB
     
     # Content analysis settings
-    use_mime_detection: bool = field(default_factory=lambda: os.getenv("elysiactl_USE_MIME_DETECTION", "true").lower() == "true")
-    analyze_vendor_dirs: bool = field(default_factory=lambda: os.getenv("elysiactl_ANALYZE_VENDOR_DIRS", "true").lower() == "true")
+    use_mime_detection: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_USE_MIME_DETECTION", "true").lower() == "true")
+    analyze_vendor_dirs: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_ANALYZE_VENDOR_DIRS", "true").lower() == "true")
     
     # Content resolution timeouts
-    file_read_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_FILE_READ_TIMEOUT", "30.0")))
-    base64_decode_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_BASE64_TIMEOUT", "10.0")))
+    file_read_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_FILE_READ_TIMEOUT", "30.0")))
+    base64_decode_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_BASE64_TIMEOUT", "10.0")))
     
     # Custom patterns (comma-separated)
-    custom_skip_paths: str = field(default_factory=lambda: os.getenv("elysiactl_CUSTOM_SKIP_PATHS", ""))
-    custom_binary_extensions: str = field(default_factory=lambda: os.getenv("elysiactl_CUSTOM_BINARY_EXTENSIONS", ""))
+    custom_skip_paths: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CUSTOM_SKIP_PATHS", ""))
+    custom_binary_extensions: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CUSTOM_BINARY_EXTENSIONS", ""))
     
     # Error handling configuration
-    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_RETRY_ATTEMPTS", "3")))
-    retry_base_delay: float = field(default_factory=lambda: float(os.getenv("elysiactl_RETRY_BASE_DELAY", "1.0")))
-    retry_max_delay: float = field(default_factory=lambda: float(os.getenv("elysiactl_RETRY_MAX_DELAY", "60.0")))
+    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_RETRY_ATTEMPTS", "3")))
+    retry_base_delay: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_RETRY_BASE_DELAY", "1.0")))
+    retry_max_delay: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_RETRY_MAX_DELAY", "60.0")))
     
     # Circuit breaker settings
-    circuit_breaker_failure_threshold: int = field(default_factory=lambda: int(os.getenv("elysiactl_CB_FAILURE_THRESHOLD", "5")))
-    circuit_breaker_recovery_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_CB_RECOVERY_TIMEOUT", "30.0")))
+    circuit_breaker_failure_threshold: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_CB_FAILURE_THRESHOLD", "5")))
+    circuit_breaker_recovery_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_CB_RECOVERY_TIMEOUT", "30.0")))
     
     # Error tracking
-    error_history_limit: int = field(default_factory=lambda: int(os.getenv("elysiactl_ERROR_HISTORY_LIMIT", "100")))
-    log_level: str = field(default_factory=lambda: os.getenv("elysiactl_LOG_LEVEL", "INFO"))
+    error_history_limit: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_ERROR_HISTORY_LIMIT", "100")))
+    log_level: str = field(default_factory=lambda: os.getenv("ELYSIACTL_LOG_LEVEL", "INFO"))
     
     # Performance optimization settings
-    max_workers: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_WORKERS", "8")))
-    max_connections: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_CONNECTIONS", "20")))
-    connection_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_CONNECTION_TIMEOUT", "30.0")))
+    max_workers: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_WORKERS", "8")))
+    max_connections: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_CONNECTIONS", "20")))
+    connection_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_CONNECTION_TIMEOUT", "30.0")))
     
     # Memory management
-    memory_limit_mb: int = field(default_factory=lambda: int(os.getenv("elysiactl_MEMORY_LIMIT_MB", "512")))
-    streaming_buffer_size: int = field(default_factory=lambda: int(os.getenv("elysiactl_STREAMING_BUFFER_SIZE", "1000")))
+    memory_limit_mb: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MEMORY_LIMIT_MB", "512")))
+    streaming_buffer_size: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_STREAMING_BUFFER_SIZE", "1000")))
     
     # Batch optimization
-    enable_batch_operations: bool = field(default_factory=lambda: os.getenv("elysiactl_ENABLE_BATCH_OPERATIONS", "true").lower() == "true")
-    batch_flush_interval: float = field(default_factory=lambda: float(os.getenv("elysiactl_BATCH_FLUSH_INTERVAL", "5.0")))
+    enable_batch_operations: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_ENABLE_BATCH_OPERATIONS", "true").lower() == "true")
+    batch_flush_interval: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_BATCH_FLUSH_INTERVAL", "5.0")))
     
     # Performance monitoring
-    enable_metrics: bool = field(default_factory=lambda: os.getenv("elysiactl_ENABLE_METRICS", "true").lower() == "true")
-    metrics_interval: float = field(default_factory=lambda: float(os.getenv("elysiactl_METRICS_INTERVAL", "10.0")))
+    enable_metrics: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_ENABLE_METRICS", "true").lower() == "true")
+    metrics_interval: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_METRICS_INTERVAL", "10.0")))
 
 
 @dataclass
@@ -185,15 +185,15 @@ class CollectionConfig:
     """Configuration for Weaviate collections and replication."""
     
     # Default collection names
-    default_source_collection: str = field(default_factory=lambda: os.getenv("elysiactl_DEFAULT_SOURCE_COLLECTION", "SRC_ENTERPRISE__"))
+    default_source_collection: str = field(default_factory=lambda: os.getenv("ELYSIACTL_DEFAULT_SOURCE_COLLECTION", "SRC_ENTERPRISE__"))
     
     # Replication settings
-    replication_factor: int = field(default_factory=lambda: int(os.getenv("elysiactl_REPLICATION_FACTOR", "3")))
-    replication_async_enabled: bool = field(default_factory=lambda: os.getenv("elysiactl_REPLICATION_ASYNC", "true").lower() == "true")
+    replication_factor: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_REPLICATION_FACTOR", "3")))
+    replication_async_enabled: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_REPLICATION_ASYNC", "true").lower() == "true")
     
     # Vectorization settings
-    vectorizer: str = field(default_factory=lambda: os.getenv("elysiactl_VECTORIZER", "text2vec-openai"))
-    embedding_model: str = field(default_factory=lambda: os.getenv("elysiactl_EMBEDDING_MODEL", "text-embedding-3-small"))
+    vectorizer: str = field(default_factory=lambda: os.getenv("ELYSIACTL_VECTORIZER", "text2vec-openai"))
+    embedding_model: str = field(default_factory=lambda: os.getenv("ELYSIACTL_EMBEDDING_MODEL", "text-embedding-3-small"))
 
 
 @dataclass
@@ -201,14 +201,14 @@ class RepositoryConfig:
     """Configuration for source code repository indexing."""
     
     # Base paths
-    enterprise_dir: str = field(default_factory=lambda: os.getenv("elysiactl_ENTERPRISE_DIR", "/opt/pdi/Enterprise"))
+    enterprise_dir: str = field(default_factory=lambda: os.getenv("ELYSIACTL_ENTERPRISE_DIR", "/opt/pdi/Enterprise"))
     
     # Repository filtering
-    repo_pattern: str = field(default_factory=lambda: os.getenv("elysiactl_REPO_PATTERN", "https-pdidev.visualstudio"))
-    exclude_pattern: str = field(default_factory=lambda: os.getenv("elysiactl_EXCLUDE_PATTERN", "ZZ_Obsolete"))
+    repo_pattern: str = field(default_factory=lambda: os.getenv("ELYSIACTL_REPO_PATTERN", "https-pdidev.visualstudio"))
+    exclude_pattern: str = field(default_factory=lambda: os.getenv("ELYSIACTL_EXCLUDE_PATTERN", "ZZ_Obsolete"))
     
     # Repository name cleanup
-    cleanup_pattern: str = field(default_factory=lambda: os.getenv("elysiactl_CLEANUP_PATTERN", "https-pdidev.visualstudio.com-DefaultCollection-PDI-_git-"))
+    cleanup_pattern: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CLEANUP_PATTERN", "https-pdidev.visualstudio.com-DefaultCollection-PDI-_git-"))
 
 
 @dataclass
@@ -221,8 +221,8 @@ class elysiactlConfig:
     repositories: RepositoryConfig = field(default_factory=RepositoryConfig)
     
     # Global settings
-    debug: bool = field(default_factory=lambda: os.getenv("elysiactl_DEBUG", "false").lower() == "true")
-    verbose: bool = field(default_factory=lambda: os.getenv("elysiactl_VERBOSE", "false").lower() == "true")
+    debug: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_DEBUG", "false").lower() == "true")
+    verbose: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_VERBOSE", "false").lower() == "true")
 
 
 # Global configuration instance

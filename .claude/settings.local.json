@@ -3,7 +3,8 @@
     "allow": [
       "Read(/opt/weaviate/**)",
       "mcp__context7__get-library-docs",
-      "mcp__context7__resolve-library-id"
+      "mcp__context7__resolve-library-id",
+      "mcp__sequentialthinking__sequentialthinking"
     ],
     "deny": [],
     "ask": []

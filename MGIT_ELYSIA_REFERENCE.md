@@ -1,29 +1,29 @@
-# 🔗 MGIT Index + Elysia Control Integration Guide
+# 🔗 mgit index + elysiactl Workflow Guide
 
 ## 📋 Quick Reference Card
 
 ### 🎯 **Purpose**
-This guide shows how to use MGIT index to source repositories and have Elysia Control ingest them automatically, with cron jobs handling differentials and generation.
+This guide shows how to use mgit index to source repositories and have elysiactl ingest them automatically, with cron jobs handling differentials and generation.
 
 ---
 
 ## 🚀 **Quick Setup (3 Steps)**
 
-### **Step 1: Configure MGIT Index**
+### **Step 1: Configure mgit Index**
 ```bash
-# Set up your MGIT index configuration
+# Set up your mgit index configuration
 export MGIT_INDEX_PATH="/path/to/your/mgit/index"
 export MGIT_REPOS_LIST="repos-to-index.txt"
 export MGIT_UPDATE_INTERVAL="3600"  # 1 hour
 ```
 
-### **Step 2: Configure Elysia Control**
+### **Step 2: Configure elysiactl**
 ```bash
-# Set Elysia Control environment variables
-export ELYSIA_CONTROL_HOST="localhost"
-export ELYSIA_CONTROL_PORT="8000"
-export ELYSIA_INGEST_BATCH_SIZE="50"
-export ELYSIA_DIFF_THRESHOLD="100"  # Min changes to trigger processing
+# Set elysiactl environment variables
+export WCD_URL="http://localhost:8080"
+export ELYSIACTL_URL="http://localhost:8000"
+export ELYSIACTL_BATCH_SIZE="50"
+export ELYSIACTL_DIFF_THRESHOLD="100"  # Min changes to trigger processing
 ```
 
 ### **Step 3: Set Up Cron Job**
@@ -40,16 +40,16 @@ export ELYSIA_DIFF_THRESHOLD="100"  # Min changes to trigger processing
 /your/project/
 ├── scripts/
 │   ├── mgit-elysia-sync.sh    # Main sync script
-│   ├── mgit-index-update.sh   # Update MGIT index
+│   ├── mgit-index-update.sh   # Update mgit index
 │   └── elysia-ingest.sh       # Elysia ingestion script
 ├── config/
-│   ├── mgit-config.env        # MGIT configuration
-│   └── elysia-config.env      # Elysia Control config
+│   ├── mgit-config.env        # mgit configuration
+│   └── elysia-config.env      # elysiactl config
 ├── logs/
-│   ├── mgit-updates.log       # MGIT update logs
+│   ├── mgit-updates.log       # mgit update logs
 │   └── elysia-ingest.log      # Elysia ingestion logs
 └── data/
-    ├── mgit-index/            # MGIT index data
+    ├── mgit-index/            # mgit index data
     └── elysia-processed/      # Processed repo data
 ```
 
@@ -59,7 +59,7 @@ export ELYSIA_DIFF_THRESHOLD="100"  # Min changes to trigger processing
 
 ### **mgit-config.env**
 ```bash
-# MGIT Index Configuration
+# mgit Index Configuration
 MGIT_INDEX_PATH=/data/mgit-index
 MGIT_REPOS_FILE=/config/repos-to-index.txt
 MGIT_UPDATE_INTERVAL=3600
@@ -70,13 +70,13 @@ MGIT_BRANCH=main
 
 ### **elysia-config.env**
 ```bash
-# Elysia Control Configuration
-ELYSIA_HOST=localhost
-ELYSIA_PORT=8000
-ELYSIA_API_KEY=your-api-key-here
-ELYSIA_BATCH_SIZE=50
-ELYSIA_TIMEOUT=300
-ELYSIA_RETRY_ATTEMPTS=3
+# elysiactl Configuration
+WCD_URL=http://localhost:8080
+ELYSIACTL_URL=http://localhost:8000
+ELYSIACTL_API_KEY=your-api-key-here
+ELYSIACTL_BATCH_SIZE=50
+ELYSIACTL_TIMEOUT=300
+ELYSIACTL_MAX_RETRY_ATTEMPTS=3
 ```
 
 ---
@@ -86,7 +86,7 @@ ELYSIA_RETRY_ATTEMPTS=3
 ### **mgit-elysia-sync.sh** (Main Sync Script)
 ```bash
 #!/bin/bash
-# MGIT Index to Elysia Control Sync Script
+# mgit Index to elysiactl Sync Script
 
 set -e
 
@@ -100,16 +100,16 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
-log "Starting MGIT-Elysia sync process"
+log "Starting mgit-Elysia sync process"
 
-# Step 1: Update MGIT index
-log "Updating MGIT index..."
+# Step 1: Update mgit index
+log "Updating mgit index..."
 /scripts/mgit-index-update.sh
 
 # Step 2: Check for changes
 CHANGES=$(find "$MGIT_INDEX_PATH" -name "*.diff" -newer "$MGIT_INDEX_PATH/.last_sync" | wc -l)
 
-if [ "$CHANGES" -gt "$ELYSIA_DIFF_THRESHOLD" ]; then
+if [ "$CHANGES" -gt "$ELYSIACTL_DIFF_THRESHOLD" ]; then
     log "Found $CHANGES changes, triggering Elysia ingestion..."
 
     # Step 3: Run Elysia ingestion
@@ -120,18 +120,18 @@ if [ "$CHANGES" -gt "$ELYSIA_DIFF_THRESHOLD" ]; then
 
     log "Sync process completed successfully"
 else
-    log "Only $CHANGES changes found (threshold: $ELYSIA_DIFF_THRESHOLD), skipping ingestion"
+    log "Only $CHANGES changes found (threshold: $ELYSIACTL_DIFF_THRESHOLD), skipping ingestion"
 fi
 ```
 
 ### **mgit-index-update.sh**
 ```bash
 #!/bin/bash
-# Update MGIT Index Script
+# Update mgit Index Script
 
 source /config/mgit-config.env
 
-log "Updating MGIT index from repos list..."
+log "Updating mgit index from repos list..."
 
 # Update existing repos
 mgit update --index "$MGIT_INDEX_PATH"
@@ -146,17 +146,17 @@ done < "$MGIT_REPOS_FILE"
 # Generate differentials
 mgit diff --index "$MGIT_INDEX_PATH" --output "$MGIT_INDEX_PATH/diffs/"
 
-log "MGIT index update completed"
+log "mgit index update completed"
 ```
 
 ### **elysia-ingest.sh**
 ```bash
 #!/bin/bash
-# Elysia Control Ingestion Script
+# elysiactl Ingestion Script
 
 source /config/elysia-config.env
 
-log "Starting Elysia Control ingestion..."
+log "Starting elysiactl ingestion..."
 
 # Find new/changed repos
 find "$MGIT_INDEX_PATH/diffs/" -name "*.json" -type f | while read -r diff_file; do
@@ -166,16 +166,16 @@ find "$MGIT_INDEX_PATH/diffs/" -name "*.json" -type f | while read -r diff_file;
     REPO_NAME=$(basename "$diff_file" .json)
     REPO_PATH="$MGIT_INDEX_PATH/repos/$REPO_NAME"
 
-    # Ingest into Elysia Control
-    curl -X POST "http://$ELYSIA_HOST:$ELYSIA_PORT/api/ingest/repo" \
-         -H "Authorization: Bearer $ELYSIA_API_KEY" \
+    # Ingest into elysiactl
+    curl -X POST "$ELYSIACTL_URL/api/ingest/repo" \
+         -H "Authorization: Bearer $ELYSIACTL_API_KEY" \
          -H "Content-Type: application/json" \
          -d @- << EOF
 {
     "repo_path": "$REPO_PATH",
     "repo_name": "$REPO_NAME",
     "source": "mgit-index",
-    "batch_size": $ELYSIA_BATCH_SIZE,
+    "batch_size": $ELYSIACTL_BATCH_SIZE,
     "generate_embeddings": true,
     "create_collections": true
 }
@@ -190,7 +190,7 @@ EOF
     fi
 done
 
-log "Elysia Control ingestion completed"
+log "elysiactl ingestion completed"
 ```
 
 ---
@@ -233,10 +233,10 @@ crontab -e
 # View recent sync logs
 tail -f /logs/mgit-elysia-sync.log
 
-# Check MGIT index status
+# Check mgit index status
 mgit status --index /data/mgit-index
 
-# Check Elysia Control health
+# Check elysiactl health
 curl http://localhost:8000/health
 ```
 
@@ -253,11 +253,11 @@ ls -la /data/mgit-index/.git/FETCH_HEAD
 
 #### **Issue: Elysia ingestion fails**
 ```bash
-# Check Elysia Control logs
+# Check elysiactl logs
 tail -f /logs/elysia-control.log
 
 # Test API connection
-curl -H "Authorization: Bearer $ELYSIA_API_KEY" http://localhost:8000/api/status
+curl -H "Authorization: Bearer $ELYSIACTL_API_KEY" $ELYSIACTL_URL/api/status
 ```
 
 #### **Issue: Cron job not running**
@@ -276,7 +276,7 @@ grep CRON /var/log/syslog
 
 ## 📊 **Performance Tuning**
 
-### **MGIT Index Settings**
+### **mgit Index Settings**
 ```bash
 # For faster updates (shallower clones)
 MGIT_CLONE_DEPTH=1
@@ -288,16 +288,16 @@ MGIT_CLONE_DEPTH=50
 MGIT_MAX_CONCURRENT=5
 ```
 
-### **Elysia Control Settings**
+### **elysiactl Settings**
 ```bash
 # Larger batches for better throughput
-ELYSIA_BATCH_SIZE=100
+ELYSIACTL_BATCH_SIZE=100
 
 # Smaller batches for memory efficiency
-ELYSIA_BATCH_SIZE=25
+ELYSIACTL_BATCH_SIZE=25
 
 # Adjust timeout for large repos
-ELYSIA_TIMEOUT=600
+ELYSIACTL_TIMEOUT=600
 ```
 
 ---
@@ -320,10 +320,10 @@ ELYSIA_TIMEOUT=600
 - **Logs**: Check `/logs/` directory for detailed error information
 - **Health Checks**: Use provided monitoring scripts
 - **Configuration**: Verify all `.env` files are properly set
-- **API Docs**: Refer to Elysia Control API documentation
+- **API Docs**: Refer to elysiactl API documentation
 
 ---
 
 **Last Updated**: September 2, 2025
 **Version**: 1.0
-**Compatibility**: MGIT v2.x, Elysia Control v0.2+
+**Compatibility**: mgit v2.x, elysiactl v0.2+

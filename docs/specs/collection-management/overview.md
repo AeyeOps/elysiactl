@@ -184,7 +184,7 @@ elysiactl col restore ./backup/UserProfile.json --skip-schema
 
 ### Protected Collections
 Collections matching these patterns cannot be deleted without override:
-- `ELYSIA_*` - System collections
+- `ELYSIACTL_*` - System collections
 - `*_SYSTEM` - System suffix
 - `.internal*` - Internal prefix
 

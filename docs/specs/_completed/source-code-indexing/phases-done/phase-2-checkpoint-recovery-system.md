@@ -663,10 +663,10 @@ class ProcessingConfig:
     # ... existing fields ...
     
     # Checkpoint system settings
-    checkpoint_db_dir: str = field(default_factory=lambda: os.getenv("elysiactl_CHECKPOINT_DB_DIR", "/var/lib/elysiactl"))
-    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("elysiactl_MAX_RETRY_ATTEMPTS", "3")))
-    checkpoint_cleanup_days: int = field(default_factory=lambda: int(os.getenv("elysiactl_CHECKPOINT_CLEANUP_DAYS", "7")))
-    sqlite_timeout: float = field(default_factory=lambda: float(os.getenv("elysiactl_SQLITE_TIMEOUT", "30.0")))
+    checkpoint_db_dir: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CHECKPOINT_DB_DIR", "/var/lib/elysiactl"))
+    max_retry_attempts: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_MAX_RETRY_ATTEMPTS", "3")))
+    checkpoint_cleanup_days: int = field(default_factory=lambda: int(os.getenv("ELYSIACTL_CHECKPOINT_CLEANUP_DAYS", "7")))
+    sqlite_timeout: float = field(default_factory=lambda: float(os.getenv("ELYSIACTL_SQLITE_TIMEOUT", "30.0")))
 ```
 
 This phase transforms the sync system from simple append-only checkpoints to enterprise-grade transactional recovery. The SQLite backend provides atomic operations, detailed error tracking, and efficient resume capabilities that scale to thousands of files while maintaining data integrity under any failure scenario.

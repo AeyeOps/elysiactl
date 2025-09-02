@@ -5,7 +5,7 @@ import aiohttp
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional, AsyncIterator, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from rich.console import Console
 from rich.progress import Progress, TaskID, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn
 

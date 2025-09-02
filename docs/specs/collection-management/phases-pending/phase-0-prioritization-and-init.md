@@ -30,7 +30,7 @@
    - **Risk**: Medium (data loss potential)
 
 4. **Protection System**
-   - ELYSIA_* pattern protection
+   - ELYSIACTL_* pattern protection
    - Configuration loading
    - **Effort**: 2 hours
    - **Dependencies**: None
@@ -134,7 +134,7 @@ touch /opt/elysiactl/src/elysiactl/config/collection_config.yaml
 collection_management:
   # Patterns that cannot be deleted without override
   protected_patterns:
-    - "ELYSIA_*"
+    - "ELYSIACTL_*"
     - "*_SYSTEM"
     - ".internal*"
   
@@ -406,14 +406,14 @@ __version__ = "0.2.0"  # Bump for new feature
 ```bash
 # After implementation, test with:
 elysiactl col ls
-elysiactl col show ELYSIA_CONFIG__
+elysiactl col show ELYSIACTL_CONFIG__
 elysiactl col create TestCollection
 elysiactl col rm TestCollection --dry-run
 elysiactl col rm TestCollection
 
 # Verify protection
-elysiactl col rm ELYSIA_CONFIG__  # Should fail
-elysiactl col rm ELYSIA_CONFIG__ --force  # Should prompt
+elysiactl col rm ELYSIACTL_CONFIG__  # Should fail
+elysiactl col rm ELYSIACTL_CONFIG__ --force  # Should prompt
 ```
 
 ### Risk Mitigation

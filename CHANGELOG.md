@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-09-02
+
+### Added
+- **Complete Phase 2C: Basic Restore Functionality** - Full collection restore from backup files
+- **Enhanced Backup with Data Inclusion** - `elysiactl col backup --include-data` with progress tracking
+- **Vector Embedding Support** - Optional inclusion of vector embeddings in backups
+- **Batch Restore Operations** - Efficient object restoration with configurable batch sizes
+- **Progress Tracking** - Rich progress bars for long-running backup/restore operations
+- **Comprehensive End-to-End Testing** - 8 new integration tests covering full backup/restore cycles
+- **Dry-Run Mode for Restore** - Preview restore operations without making changes
+- **Custom Collection Naming** - Restore to collections with different names than originals
+- **Schema-Only Restore** - Restore collection schemas without data using `--skip-data` flag
+- **Memory Management** - Streaming JSON processing for large backup files
+- **32 Comprehensive Tests** - Including 12 new RestoreManager tests and 8 end-to-end scenarios
+
+### Features
+- `elysiactl col restore <backup_file>` - Restore collections from backup files
+- `elysiactl col restore --name <custom_name>` - Restore with custom collection name
+- `elysiactl col restore --skip-data` - Schema-only restore
+- `elysiactl col restore --dry-run` - Preview restore operations
+- `elysiactl col backup --include-data` - Include object data in backups
+- `elysiactl col backup --include-vectors` - Include vector embeddings
+- Enhanced progress indicators for all operations
+
+### Changed
+- **Modernized PyTest Configuration** - Moved from pytest.ini to pyproject.toml, resolved marker warnings
+- **Enhanced BackupManager** - Added data backup capabilities with progress tracking
+- **Improved Error Handling** - Better validation and user feedback for backup/restore operations
+- **Updated Test Architecture** - 60 total tests with comprehensive coverage
+- **Memory Optimization** - Streaming JSON processing for large datasets
+
+### Fixed
+- **PyTest Marker Warnings** - Resolved configuration conflicts between pytest.ini and pyproject.toml
+- **Import Dependencies** - Added missing rich.progress imports for TextColumn and BarColumn
+- **Test Fixtures** - Fixed RestoreManager test fixtures and mock configurations
+
+### Technical Details
+- **RestoreManager Class** - Complete implementation with validation, progress tracking, and batch processing
+- **Progress Indicators** - Rich library integration for visual feedback during operations
+- **Batch Processing** - Optimized object restoration with configurable batch sizes (default: 100)
+- **Safety Checks** - Prevents overwriting existing collections during restore operations
+- **Version Validation** - Backup file format compatibility checking
+- **Memory Efficiency** - Streaming JSON processing for files >10,000 objects
+
 ## [0.2.0] - 2025-09-02
 
 ### Added
@@ -43,20 +87,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.2] - 2024-12-17
 
 ### Added
-- **Dynamic collection parameter for repair command** - Can now repair any ELYSIA_* collection, not just ELYSIA_CONFIG__
+- **Dynamic collection parameter for repair command** - Can now repair any ELYSIACTL_* collection, not just ELYSIACTL_CONFIG__
 - **Data export functionality** - Safely exports collection data before deletion with timestamped JSON files
-- **Dynamic system collection discovery** - Health command automatically discovers all ELYSIA_* collections
+- **Dynamic system collection discovery** - Health command automatically discovers all ELYSIACTL_* collections
 - **Single-source version management** - Version read dynamically from pyproject.toml using importlib.metadata
 - **Formatted guidance panels** - Better visual presentation of repair options and guidance
 - **Replication settling wait** - 2-second wait for RAFT consensus to settle during verification
 
 ### Changed
-- **Removed lag detection test** - Eliminated problematic test record writes that failed with ELYSIA_* schemas
+- **Removed lag detection test** - Eliminated problematic test record writes that failed with ELYSIACTL_* schemas
 - **Enhanced --force flag** - Now skips data export for emergency repairs
 - **Improved error messages** - Clearer guidance for recovery and troubleshooting
 
 ### Fixed
-- **ELYSIA_TREES__ replication factor** - Repair command can now fix collections created with factor=1
+- **ELYSIACTL_TREES__ replication factor** - Repair command can now fix collections created with factor=1
 - **"Unable to write test record" warnings** - No longer attempts invalid writes to system collections
 - **Collection data protection** - Prevents accidental data loss during repair operations
 
@@ -99,7 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `status` - Show current status of all services and nodes
 - `health` - Perform health checks with optional verbose diagnostics
 - `health --cluster` - Verify cluster replication and node distribution
-- `repair config-replication` - Fix ELYSIA_CONFIG__ replication issues
+- `repair config-replication` - Fix ELYSIACTL_CONFIG__ replication issues
 
 ### Technical Details
 - Built with UV package manager for dependency management

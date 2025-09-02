@@ -1,6 +1,5 @@
 """Content resolution for analyzing mgit's three-tier strategy."""
 
-import os
 import base64
 import mimetypes
 from pathlib import Path

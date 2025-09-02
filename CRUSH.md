@@ -145,7 +145,7 @@ def _require_env(var_name: str) -> str:
 - **NEVER use python** directly: `python -m`, `python setup.py`
 
 ### Environment Variables
-- Use uppercase with `elysiactl_` prefix: `elysiactl_BATCH_SIZE`
+- Use uppercase with `ELYSIACTL_` prefix: `ELYSIACTL_BATCH_SIZE`
 - Provide sensible defaults for optional variables
 - Require explicit configuration for critical values
 - Use `os.getenv()` with fallback values

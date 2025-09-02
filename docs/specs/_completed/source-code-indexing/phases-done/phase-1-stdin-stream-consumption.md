@@ -519,8 +519,8 @@ class ProcessingConfig:
     # ... existing fields ...
     
     # Sync-specific settings
-    checkpoint_dir: str = field(default_factory=lambda: os.getenv("elysiactl_CHECKPOINT_DIR", "/tmp/elysiactl"))
-    auto_clear_checkpoint: bool = field(default_factory=lambda: os.getenv("elysiactl_AUTO_CLEAR_CHECKPOINT", "true").lower() == "true")
+    checkpoint_dir: str = field(default_factory=lambda: os.getenv("ELYSIACTL_CHECKPOINT_DIR", "/tmp/elysiactl"))
+    auto_clear_checkpoint: bool = field(default_factory=lambda: os.getenv("ELYSIACTL_AUTO_CLEAR_CHECKPOINT", "true").lower() == "true")
 ```
 
 This phase establishes the foundation for Unix-pipe compatibility while maintaining safety through checkpointing. The implementation supports both simple file paths and structured JSONL input, setting the stage for more advanced content strategies in later phases.

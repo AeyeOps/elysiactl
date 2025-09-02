@@ -46,7 +46,7 @@ async with httpx.AsyncClient(timeout=config.processing.medium_timeout) as client
     Indexes all repositories matching the configured pattern.
     
     Default: /opt/pdi/Enterprise/https-pdidev.visualstudio* (excluding ZZ_Obsolete)
-    Use elysiactl_ENTERPRISE_DIR, elysiactl_REPO_PATTERN, elysiactl_EXCLUDE_PATTERN to customize.
+    Use ELYSIACTL_ENTERPRISE_DIR, ELYSIACTL_REPO_PATTERN, ELYSIACTL_EXCLUDE_PATTERN to customize.
     """
 ```
 
@@ -57,10 +57,10 @@ async with httpx.AsyncClient(timeout=config.processing.medium_timeout) as client
     Indexes all repositories matching the configured pattern.
     
     Configuration via environment variables:
-    - elysiactl_ENTERPRISE_DIR: Base directory for repositories 
-    - elysiactl_REPO_PATTERN: Repository name pattern to match
-    - elysiactl_EXCLUDE_PATTERN: Pattern to exclude from indexing
-    - elysiactl_DEFAULT_SOURCE_COLLECTION: Target collection name
+    - ELYSIACTL_ENTERPRISE_DIR: Base directory for repositories 
+    - ELYSIACTL_REPO_PATTERN: Repository name pattern to match
+    - ELYSIACTL_EXCLUDE_PATTERN: Pattern to exclude from indexing
+    - ELYSIACTL_DEFAULT_SOURCE_COLLECTION: Target collection name
     """
 ```
 
@@ -104,19 +104,19 @@ def validate_config():
     errors = []
     
     if not config.repositories.enterprise_dir:
-        errors.append("elysiactl_ENTERPRISE_DIR must be set")
+        errors.append("ELYSIACTL_ENTERPRISE_DIR must be set")
     
     if not config.repositories.repo_pattern:
-        errors.append("elysiactl_REPO_PATTERN must be set")
+        errors.append("ELYSIACTL_REPO_PATTERN must be set")
         
     if config.processing.batch_size <= 0:
-        errors.append("elysiactl_BATCH_SIZE must be > 0")
+        errors.append("ELYSIACTL_BATCH_SIZE must be > 0")
         
     if config.processing.max_file_size <= 0:
-        errors.append("elysiactl_MAX_FILE_SIZE must be > 0")
+        errors.append("ELYSIACTL_MAX_FILE_SIZE must be > 0")
         
     if config.collections.replication_factor < 1:
-        errors.append("elysiactl_REPLICATION_FACTOR must be >= 1")
+        errors.append("ELYSIACTL_REPLICATION_FACTOR must be >= 1")
     
     if errors:
         console.print("[red]Configuration errors:[/red]")
@@ -164,7 +164,7 @@ if collection is None:
 ### Step 3: Update string replacement logic
 1. Replace hardcoded string replacement on line 506
 2. Make it derive from repo_pattern configuration
-3. Test with different elysiactl_REPO_PATTERN values
+3. Test with different ELYSIACTL_REPO_PATTERN values
 4. Ensure repository names display correctly
 
 ### Step 4: Update help documentation
@@ -181,11 +181,11 @@ uv run elysiactl index status
 
 # Test with custom configuration
 export WCD_URL="http://weaviate.example.com:8080"
-export elysiactl_DEFAULT_SOURCE_COLLECTION="TEST_SRC__"
+export ELYSIACTL_DEFAULT_SOURCE_COLLECTION="TEST_SRC__"
 uv run elysiactl index status
 
 # Test configuration validation
-export elysiactl_BATCH_SIZE="0"
+export ELYSIACTL_BATCH_SIZE="0"
 uv run elysiactl index enterprise --dry-run
 
 # Test help text
@@ -199,12 +199,12 @@ export WCD_URL="http://localhost:9080"
 uv run elysiactl index status
 
 # Test custom enterprise directory
-export elysiactl_ENTERPRISE_DIR="/custom/path"
+export ELYSIACTL_ENTERPRISE_DIR="/custom/path"
 uv run elysiactl index enterprise --dry-run
 
 # Test custom repository patterns
-export elysiactl_REPO_PATTERN="custom-repo-prefix" 
-export elysiactl_EXCLUDE_PATTERN="DEPRECATED"
+export ELYSIACTL_REPO_PATTERN="custom-repo-prefix" 
+export ELYSIACTL_EXCLUDE_PATTERN="DEPRECATED"
 uv run elysiactl index enterprise --dry-run
 ```
 

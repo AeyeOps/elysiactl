@@ -76,14 +76,14 @@ Instead of `--fix`, the tool provides actionable messages:
 
 ```bash
 $ uv run elysiactl health --cluster
-ISSUES FOUND: ELYSIA_METADATA__ not replicated
+ISSUES FOUND: ELYSIACTL_METADATA__ not replicated
 
 Recommended action:
-1. Backup collection: elysiactl backup ELYSIA_METADATA__
+1. Backup collection: elysiactl backup ELYSIACTL_METADATA__
 2. Recreate with replication:
-   curl -X DELETE http://localhost:8080/v1/schema/ELYSIA_METADATA__
-   curl -X POST http://localhost:8080/v1/schema -d '{"class": "ELYSIA_METADATA__", "replicationConfig": {"factor": 3}}'
-3. Restore data: elysiactl restore ELYSIA_METADATA__
+   curl -X DELETE http://localhost:8080/v1/schema/ELYSIACTL_METADATA__
+   curl -X POST http://localhost:8080/v1/schema -d '{"class": "ELYSIACTL_METADATA__", "replicationConfig": {"factor": 3}}'
+3. Restore data: elysiactl restore ELYSIACTL_METADATA__
 ```
 
 This approach maintains user control while providing specific guidance for resolution.

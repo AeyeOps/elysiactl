@@ -13,7 +13,7 @@ WEAVIATE_PORT = 8080
 
 ### elysia.py (Line 13):
 ```python
-ELYSIA_PORT = 8000
+ELYSIACTL_PORT = 8000
 ```
 
 ### Multiple files contain hardcoded port arrays:
@@ -73,13 +73,13 @@ from ..config import get_config
 ### elysia.py Changes
 
 **Line 13 Replacement:**
-- **FROM:** `ELYSIA_PORT = 8000`
+- **FROM:** `ELYSIACTL_PORT = 8000`
 - **TO:** Remove constant, use `get_config().services.elysia_port` where needed
 
-**Find all usages of ELYSIA_PORT and replace with:**
+**Find all usages of ELYSIACTL_PORT and replace with:**
 ```python
 from ..config import get_config  
-# Replace ELYSIA_PORT with get_config().services.elysia_port
+# Replace ELYSIACTL_PORT with get_config().services.elysia_port
 ```
 
 ### Port Array Replacements
@@ -114,7 +114,7 @@ print('Port range:', config.services.get_weaviate_port_range())
 
 # Test custom URL port extraction
 export WCD_URL="http://custom-host:9080"
-export ELYSIA_URL="http://elysia-host:9000"
+export ELYSIACTL_URL="http://elysia-host:9000"
 uv run python -c "
 from src.elysiactl.config import get_config
 config = get_config()
@@ -128,7 +128,7 @@ print('Custom port range:', config.services.get_weaviate_port_range())
 ```bash
 # Test HTTPS URLs use correct default ports
 export WCD_URL="https://cloud.weaviate.io"
-export ELYSIA_URL="https://elysia.example.com"
+export ELYSIACTL_URL="https://elysia.example.com"
 uv run python -c "
 from src.elysiactl.config import get_config
 config = get_config()
@@ -149,7 +149,7 @@ uv run pytest tests/ -v
 
 ## Success Criteria
 
-1. **No Hardcoded Ports**: All hardcoded `WEAVIATE_PORT = 8080` and `ELYSIA_PORT = 8000` constants are removed
+1. **No Hardcoded Ports**: All hardcoded `WEAVIATE_PORT = 8080` and `ELYSIACTL_PORT = 8000` constants are removed
 2. **Dynamic Port Detection**: Port values are extracted from configured URLs
 3. **HTTPS Support**: URLs with HTTPS correctly default to port 443
 4. **Custom Port Support**: Non-standard ports in URLs are correctly detected
@@ -162,7 +162,7 @@ uv run pytest tests/ -v
 
 1. **Add port methods to ServiceConfig** in `/opt/elysiactl/src/elysiactl/config.py`
 2. **Remove WEAVIATE_PORT constant** from weaviate.py
-3. **Remove ELYSIA_PORT constant** from elysia.py
+3. **Remove ELYSIACTL_PORT constant** from elysia.py
 4. **Replace constant usage** with config method calls
 5. **Find and replace hardcoded port arrays** with dynamic generation
 6. **Add necessary imports** for config access

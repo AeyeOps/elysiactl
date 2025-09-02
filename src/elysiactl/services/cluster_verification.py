@@ -1,10 +1,9 @@
 """Cluster verification service for Weaviate multi-node validation."""
 
 import asyncio
-import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional
 import httpx
 import json
 
@@ -174,7 +173,7 @@ class ClusterVerifier:
     
     async def _verify_system_collections(self, result: ClusterVerificationResult, collection_filter: Optional[str]):
         """Verify system collections replication."""
-        # Dynamically discover all ELYSIA_* collections
+        # Dynamically discover all ELYSIACTL_* collections
         async with httpx.AsyncClient(timeout=10.0) as client:
             existing_elysia_collections = []
             try:
@@ -183,12 +182,12 @@ class ClusterVerifier:
                 if response.status_code == 200:
                     schema = response.json()
                     all_collections = [c['class'] for c in schema.get('classes', [])]
-                    # Filter for ELYSIA_* collections
-                    existing_elysia_collections = [c for c in all_collections if c.startswith('ELYSIA_')]
+                    # Filter for ELYSIACTL_* collections
+                    existing_elysia_collections = [c for c in all_collections if c.startswith('ELYSIACTL_')]
             except Exception:
                 pass  # Will check expected collections below
             
-            # Combine existing ELYSIA_* collections with expected ones
+            # Combine existing ELYSIACTL_* collections with expected ones
             all_system_collections = set(existing_elysia_collections) | set(self.system_collections)
             
             # Apply collection filter if provided

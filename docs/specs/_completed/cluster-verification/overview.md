@@ -73,8 +73,8 @@ async def verify_topology(self):
 ### 2. System Collection Verification
 ```python
 async def verify_system_collections(self):
-    """Verify ELYSIA_CONFIG__, ELYSIA_FEEDBACK__, ELYSIA_METADATA__ collections."""
-    system_collections = ["ELYSIA_CONFIG__", "ELYSIA_FEEDBACK__", "ELYSIA_METADATA__"]
+    """Verify ELYSIACTL_CONFIG__, ELYSIACTL_FEEDBACK__, ELYSIACTL_METADATA__ collections."""
+    system_collections = ["ELYSIACTL_CONFIG__", "ELYSIACTL_FEEDBACK__", "ELYSIACTL_METADATA__"]
     
     for collection_name in system_collections:
         # Check 1: Collection exists on primary node
@@ -171,7 +171,7 @@ async def check_replication_lag(self):
     
     for port in [8081, 8082]:
         while time.time() - start_time < max_wait:
-            if await self.record_exists("ELYSIA_CONFIG__", test_id, port):
+            if await self.record_exists("ELYSIACTL_CONFIG__", test_id, port):
                 lag = time.time() - start_time
                 if lag > 1.0:
                     self.add_warning(f"Replication lag to node {port}: {lag:.2f}s")
@@ -197,17 +197,17 @@ Cluster Topology:
   ✓ Gossip protocol functioning
 
 System Collections:
-  ✓ ELYSIA_CONFIG__ [factor=3, distributed]
-  ✓ ELYSIA_FEEDBACK__ [factor=3, distributed]
-  ✗ ELYSIA_METADATA__ [factor=1, NOT REPLICATED]
+  ✓ ELYSIACTL_CONFIG__ [factor=3, distributed]
+  ✓ ELYSIACTL_FEEDBACK__ [factor=3, distributed]
+  ✗ ELYSIACTL_METADATA__ [factor=1, NOT REPLICATED]
 
 Derived Collections:
   ✓ CHUNKED_documents [factor=2, matches parent]
   ⚠ CHUNKED_emails [factor=1, parent has factor=2]
 
 Data Consistency:
-  ✓ ELYSIA_CONFIG__: 1,234 records consistent
-  ✗ ELYSIA_FEEDBACK__: 5 records missing on node 8082
+  ✓ ELYSIACTL_CONFIG__: 1,234 records consistent
+  ✗ ELYSIACTL_FEEDBACK__: 5 records missing on node 8082
 
 Replication Status:
   ✓ Average lag: 0.3s
@@ -216,7 +216,7 @@ Replication Status:
 ISSUES FOUND: 2 critical, 1 warning
 
 Recommended Actions:
-- ELYSIA_METADATA__: Recreate with replication factor 3
+- ELYSIACTL_METADATA__: Recreate with replication factor 3
 - CHUNKED_emails: Update replication to match parent collection
 - Node 8082: Check network connectivity for replication lag
 ```
@@ -239,14 +239,14 @@ Recommended Actions:
   },
   "collections": {
     "system": {
-      "ELYSIA_CONFIG__": {
+      "ELYSIACTL_CONFIG__": {
         "exists": true,
         "replication_factor": 3,
         "node_distribution": {"8080": 1, "8081": 1, "8082": 1},
         "data_count": 1234,
         "consistent": true
       },
-      "ELYSIA_METADATA__": {
+      "ELYSIACTL_METADATA__": {
         "exists": true,
         "replication_factor": 1,
         "node_distribution": {"8080": 1, "8081": 0, "8082": 0},
@@ -265,8 +265,8 @@ Recommended Actions:
   "issues": [
     {
       "severity": "critical",
-      "message": "ELYSIA_METADATA__ not replicated",
-      "collection": "ELYSIA_METADATA__",
+      "message": "ELYSIACTL_METADATA__ not replicated",
+      "collection": "ELYSIACTL_METADATA__",
       "remediation": "Recreate collection with replication factor 3"
     }
   ],
@@ -324,7 +324,7 @@ def test_cluster_topology_verification():
 def test_replication_factor_detection():
     """Test correct detection of replication factors."""
     # Test with replicated collection
-    factor = await verifier.get_replication_factor("ELYSIA_CONFIG__")
+    factor = await verifier.get_replication_factor("ELYSIACTL_CONFIG__")
     assert factor == 3
     
     # Test with non-replicated collection

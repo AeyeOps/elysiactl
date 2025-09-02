@@ -7,8 +7,7 @@ import logging
 from typing import Optional, Dict, Any, Callable, List
 from dataclasses import dataclass, field
 from enum import Enum
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from rich.console import Console
 
 console = Console()
@@ -40,7 +39,7 @@ class ErrorContext:
     line_number: Optional[int] = None
     attempt: int = 1
     total_attempts: int = 3
-    start_time: datetime = field(default_factory=datetime.utcnow)
+    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
@@ -84,7 +83,7 @@ class CircuitBreaker:
         
         if self.state == "open":
             if self.last_failure_time and \
-               (datetime.utcnow() - self.last_failure_time).total_seconds() >= self.recovery_timeout:
+               (datetime.now(timezone.utc) - self.last_failure_time).total_seconds() >= self.recovery_timeout:
                 self.state = "half_open"
                 return True
             return False
@@ -101,7 +100,7 @@ class CircuitBreaker:
     def record_failure(self):
         """Record failed operation."""
         self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(timezone.utc)
         
         if self.failure_count >= self.failure_threshold:
             self.state = "open"
@@ -282,7 +281,7 @@ class ProductionErrorHandler:
     ):
         """Record error for tracking and reporting."""
         error_info = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'operation': context.operation,
             'file_path': context.file_path,
             'line_number': context.line_number,
