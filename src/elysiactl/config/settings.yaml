@@ -1,0 +1,53 @@
+# elysiactl Configuration File
+# This file contains settings for repository synchronization and Weaviate ingestion
+
+# Repository synchronization settings
+sync:
+  # Destination directory for synchronized repositories
+  destination_path: "/opt/weaviate/data/repositories"
+  
+  # Maximum concurrent sync operations
+  max_concurrent: 3
+  
+  # Timeout for individual sync operations (seconds)
+  sync_timeout: 300
+  
+  # Whether to clean up repositories after ingestion
+  cleanup_after_ingestion: false
+
+# Weaviate ingestion settings  
+weaviate:
+  # Weaviate endpoint
+  endpoint: "http://localhost:8080"
+  
+  # Batch size for ingestion
+  batch_size: 100
+  
+  # Whether to enable vector embeddings
+  enable_embeddings: true
+
+# Repository discovery settings
+discovery:
+  # Default search pattern for mgit
+  default_pattern: "*/*/*"
+  
+  # Providers to search (leave empty for all)
+  providers: []
+  
+  # Exclude patterns
+  exclude_patterns:
+    - "*/test/*"
+    - "*/tests/*"
+    - "*/*-docs"
+
+# External tool paths
+tools:
+  # Path to mgit executable (leave empty to find in PATH)
+  mgit_path: ""
+
+# Logging settings
+logging:
+  level: "INFO"
+  file: "/opt/weaviate/logs/elysiactl.log"
+  max_file_size: "10MB"
+  max_files: 5

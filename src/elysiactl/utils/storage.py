@@ -3,7 +3,7 @@
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,13 +18,13 @@ class UserPreferences:
     max_history_size: int = 100
     startup_animation_enabled: bool = True
     startup_animation_speed: float = 0.025  # 2x faster than 0.05
-    startup_animation_file: Optional[str] = None
+    startup_animation_file: str | None = None
 
 
 class LocalStorage:
     """Simple JSON-based local storage for user preferences."""
 
-    def __init__(self, app_name: str = "elysiactl", config_dir: Optional[Path] = None) -> None:
+    def __init__(self, app_name: str = "elysiactl", config_dir: Path | None = None) -> None:
         """Initialize local storage.
 
         Args:

@@ -1,7 +1,6 @@
 """Theme system for the repository management TUI."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -131,7 +130,7 @@ class ThemeManager:
             border="#475569",  # Subtle border gray
         )
 
-    def get_theme(self, name: Optional[str] = None) -> Theme:
+    def get_theme(self, name: str | None = None) -> Theme:
         """Get a theme by name."""
         if name is None:
             return self.current_theme
@@ -148,7 +147,7 @@ class ThemeManager:
         """Get list of available theme names."""
         return list(self.themes.keys())
 
-    def to_css_variables(self, theme: Optional[Theme] = None) -> str:
+    def to_css_variables(self, theme: Theme | None = None) -> str:
         """Convert theme to CSS variables."""
         if theme is None:
             theme = self.current_theme

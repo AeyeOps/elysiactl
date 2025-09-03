@@ -1,19 +1,17 @@
 """Command prompt widget for natural language input."""
 
-from textual.widgets import TextArea
 from textual import events
+from textual.widgets import TextArea
+
 
 class CommandPrompt(TextArea):
     """Natural language input widget for repository commands."""
 
     def __init__(self):
-        super().__init__(
-            id="command_prompt",
-            language="text"
-        )
+        super().__init__(id="command_prompt", language="text")
         self.command_history = []
         self.history_index = -1
-        self.placeholder_text = "💬 Type 'help' or try 'list repos', 'show failed', 'status'..."
+        self.placeholder_text = "Type a command..."
         self.showing_placeholder = False
 
     def on_mount(self) -> None:
@@ -39,18 +37,20 @@ class CommandPrompt(TextArea):
 
     async def on_key(self, event) -> None:
         """Handle key events for command history navigation."""
-        
+
         # Handle typing (any printable character that would add to text)
         # Check if it's a single character (printable) and not a special key combo
-        if (len(event.key) == 1 and 
-            event.key not in ["\t", "\n", "\r"] and 
-            not event.key.startswith("ctrl+") and
-            not event.key.startswith("alt+") and
-            not event.key.startswith("shift+") and
-            not event.key.startswith("meta+")):
+        if (
+            len(event.key) == 1
+            and event.key not in ["\t", "\n", "\r"]
+            and not event.key.startswith("ctrl+")
+            and not event.key.startswith("alt+")
+            and not event.key.startswith("shift+")
+            and not event.key.startswith("meta+")
+        ):
             if self.showing_placeholder:
                 self._hide_placeholder()
-        
+
         # Handle special keys
         if event.key == "up":
             if self.command_history and self.history_index > 0:
@@ -75,7 +75,7 @@ class CommandPrompt(TextArea):
                 # Don't submit placeholder
                 event.prevent_default()
                 return
-                
+
             command = self.text.strip()
             if command:
                 # Add to history
@@ -83,6 +83,7 @@ class CommandPrompt(TextArea):
                 self.history_index = len(self.command_history)
 
                 # Clear the input and show placeholder
+                self.text = ""  # Clear the text first
                 self._show_placeholder()
 
                 # Notify parent app of the command

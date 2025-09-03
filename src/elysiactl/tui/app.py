@@ -1,29 +1,24 @@
 """Main Textual application for repository management."""
 
-from typing import Any, ClassVar, List
+from typing import Any, ClassVar
 
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Header
 
 from ..services.repository import Repository
 from .command_processor import CommandProcessor
-from .theme_editor import ThemeEditor
 from .theme_manager import ThemeManager
 from .widgets.command_prompt import CommandPrompt
 from .widgets.custom_footer import CustomFooter
-from .widgets.virtual_scrollable import (
-    TableActionSelected,
-    TableRowSelected,
-    VirtualScrollableWidget,
-)
+from .widgets.virtual_scrollable import ConversationView
 
 
 class RepoManagerApp(App):
     """Main repository management TUI application."""
 
     @property
-    def CSS(self):
+    def CSS(self) -> str:
         """CSS that uses Textual's built-in theme variables."""
 
         return """
@@ -37,6 +32,10 @@ class RepoManagerApp(App):
             color: $foreground;
             text-align: center;
             height: 3;
+        }
+
+        Header:hover {
+            background: $primary-lighten-1;
         }
 
         Footer {
@@ -76,6 +75,13 @@ class RepoManagerApp(App):
             color: $panel;  /* Use panel theme color for subtle placeholders */
         }
 
+        /* Subtle separator line */
+        .separator-line {
+            color: $panel;  /* Same subtle color as placeholder text */
+            text-style: dim;  /* Make it even more subtle */
+            align: center middle;
+        }
+
         #bottom_section {
             dock: bottom;
             height: auto;  /* Adjust based on CommandPrompt height + 4 for footer */
@@ -101,14 +107,6 @@ class RepoManagerApp(App):
             background: $surface;
             color: $surface;
             border: none;
-        }
-
-        #above_scroll_padding {
-            /* 4th row from top - padding above scroll view */
-        }
-
-        #below_scroll_padding {
-            /* 5th row from bottom - padding below scroll view */
         }
 
         /* Sleek vertical line prefixes for messages */
@@ -160,25 +158,30 @@ class RepoManagerApp(App):
             color: $success;
             text-style: bold;
         }
+
+        /* Clickable table rows */
+        .clickable-row {
+            background: $surface;
+        }
+
+        .clickable-row:hover {
+            background: $surface-lighten-1;
+        }
+
+        .clickable-row.selected {
+            background: $primary-darken-2;
+            color: $primary-lighten-3;
+        }
         """
 
     def compose(self) -> ComposeResult:
         """Compose the main application layout."""
-        # Top padding row (invisible, used for bumper effect)
-        yield Static("", id="top_padding", classes="padding-row")
-
         yield Header()
-
-        # Padding row above scroll view (4th row from top)
-        yield Static("", id="above_scroll_padding", classes="padding-row")
 
         # Main content area with virtual scrolling for mixed content types
         with Vertical(id="main-container"):
-            self.virtual_scroller = VirtualScrollableWidget(id="virtual_scroller")
+            self.virtual_scroller = ConversationView(id="virtual_scroller")
             yield self.virtual_scroller
-
-        # Padding row below scroll view (5th row from bottom)
-        yield Static("", id="below_scroll_padding", classes="padding-row")
 
         # Bottom section for input and footer
         with Vertical(id="bottom_section"):
@@ -204,7 +207,7 @@ class RepoManagerApp(App):
         # Register custom themes with Textual after super().__init__()
         self._register_themes()
         self.command_processor = CommandProcessor()
-        self.virtual_scroller = None
+        self.virtual_scroller: ConversationView | None = None
         # Available themes will be set in _register_themes (don't overwrite!)
         # self._available_themes = []  # <-- This was overwriting the registered themes!
         self.current_theme_index = 0
@@ -217,7 +220,13 @@ class RepoManagerApp(App):
         # Set initial theme
         self.theme = theme_name
 
-    def _register_themes(self):
+        # Enable mouse support
+        self.enable_mouse()
+
+        # Track selected repositories
+        self.selected_repositories: set[Repository] = set()
+
+    def _register_themes(self) -> None:
         """Register themes using the ThemeManager for external configuration support."""
         theme_manager = ThemeManager()
         available_themes = theme_manager.get_available_themes()
@@ -229,58 +238,148 @@ class RepoManagerApp(App):
         # Update available themes list
         self._available_themes = list(available_themes.keys())
 
+    async def on_header_click(self, event) -> None:
+        """Handle header click for app information."""
+        if self.virtual_scroller:
+            self.virtual_scroller.add_separator()
+            self.virtual_scroller.add_ai_response(
+                "🖱️ **Repository Management TUI**\n\n"
+                "• **Version**: elysiactl with mgit integration\n"
+                "• **Purpose**: Interactive repository discovery and management\n"
+                "• **Features**: Pattern-based discovery, visual selection, sync monitoring\n\n"
+                "💡 **Quick Start**:\n"
+                "1. Try 'find repos \"org/project/*\"' to discover repositories\n"
+                "2. Use 'add repos' to add them to monitoring\n"
+                "3. Check 'status' for sync progress\n\n"
+                "🎯 **Pro Tip**: Use wildcards (*) for flexible pattern matching!"
+            )
+
+    def enable_mouse(self) -> None:
+        """Enable mouse support for the application."""
+        # Mouse support is enabled by default in Textual, but we can configure it
+
     def on_mount(self) -> None:
         """Initialize the application when mounted."""
-        # Ensure theme is applied properly
-        if hasattr(self, "theme") and self.theme:
-            pass  # Theme should already be set
-        else:
-            self.theme = "default"  # Fallback
-
-        # Load real repository data
-        if self.virtual_scroller:
-            real_repos = self.load_real_repositories()
-            if real_repos:
-                self.virtual_scroller.add_repository_table(real_repos)
-                self.virtual_scroller.add_ai_response(
-                    f"Loaded {len(real_repos)} repositories from mgit discovery"
-                )
-            else:
-                # No fallback - inform user that no repositories were found
-                self.virtual_scroller.add_ai_response(
-                    "No repositories found. Make sure mgit is installed and configured. Try running 'mgit list *' to verify your setup."
-                )
-
-        # Focus the command prompt after a short delay to ensure it's ready
+        # Focus the command prompt - completely passive, no automatic actions
         self.set_timer(0.1, lambda: self.command_prompt.focus() if self.command_prompt else None)
 
-    def load_real_repositories(self) -> List[Repository]:
+    def load_real_repositories(self) -> list[Repository]:
         """Load real repositories from mgit discovery."""
         try:
             from ..services.repository import repo_service
-            
-            # Discover repositories using mgit with a broad pattern
-            repos = repo_service.discover_repositories("*/*/*")
-            
-            if repos:
-                # Update status for loaded repositories (no artificial limit)
-                for repo in repos:
-                    try:
-                        repo.sync_status = repo_service.get_repository_status(repo)
-                    except Exception:
-                        repo.sync_status = "unknown"
-                
-                return repos
-            
-        except Exception as e:
-            print(f"mgit discovery error: {e}")
-            
-        return []
 
-    async def on_command_prompt_command_submitted(self, event) -> None:
-        """Handle command submission from the prompt."""
-        command = event.command
-        print(f"DEBUG: Received command: '{command}'")  # Debug output
+            # Try to load from monitored repositories first
+            if repo_service.repositories:
+                repos = list(repo_service.repositories.values())
+                return repos
+
+            # If no monitored repos, return empty list
+            # User will see empty table and can use commands to discover repos
+            return []
+
+        except Exception:
+            # Don't print console messages in TUI - let the UI handle errors gracefully
+            return []
+
+    def handle_repo_find_command(self, pattern: str, limit: int = 50) -> None:
+        """Handle repository discovery command in TUI."""
+        if self.virtual_scroller:
+            self.virtual_scroller.add_ai_response(
+                f"🔍 Discovering repositories with pattern: {pattern}"
+            )
+
+        # Run discovery in background to avoid blocking UI
+        def discover_task():
+            try:
+                from ..services.repository import repo_service
+
+                repos = repo_service.discover_repositories(pattern=pattern, limit=limit)
+
+                if repos:
+                    # Add to TUI
+                    self.call_from_thread(self._show_discovered_repos, repos, pattern)
+                else:
+                    self.call_from_thread(
+                        lambda: self.virtual_scroller.add_ai_response(
+                            "No repositories found matching pattern"
+                        )
+                        if self.virtual_scroller
+                        else None
+                    )
+            except Exception:
+                self.call_from_thread(
+                    lambda: self.virtual_scroller.add_ai_response(f"❌ Discovery error: {e}")
+                    if self.virtual_scroller
+                    else None
+                )
+
+        # Start background task
+        import threading
+
+        thread = threading.Thread(target=discover_task, daemon=True)
+        thread.start()
+
+    def _show_discovered_repos(self, repos: list[Repository], pattern: str) -> None:
+        """Show discovered repositories in TUI."""
+        if self.virtual_scroller:
+            # Add table with selection capability
+            self.virtual_scroller.add_repository_table(repos, selectable=True)
+            self.virtual_scroller.add_ai_response(
+                f"✅ Found {len(repos)} repositories matching '{pattern}'\n"
+                "💡 Use your mouse or arrow keys to select repositories. "
+                "Press Enter to toggle selection. "
+                "Then, use 'add repos' to add them to monitoring."
+            )
+
+    def handle_repo_add_command(self, pattern: str | None) -> None:
+        """Handle adding repositories to monitoring in TUI."""
+        # Get selected repos from the table
+        selected_repos = []
+        if self.virtual_scroller and self.virtual_scroller.repository_table:
+            selected_repos = self.virtual_scroller.repository_table.get_selected_repositories()
+
+        if not selected_repos:
+            if self.virtual_scroller:
+                self.virtual_scroller.add_ai_response(
+                    "❌ No repositories selected. Use 'find repos <pattern>' first, "
+                    "then select repositories from the table."
+                )
+            return
+
+        # Run add task in background
+        def add_task():
+            try:
+                from ..services.repository import repo_service
+
+                # Add repositories to the service
+                for repo in selected_repos:
+                    repo_service.repositories[repo.full_name] = repo
+                repo_service.save_repository_config()
+                self.call_from_thread(self._show_added_repos, selected_repos)
+            except Exception:
+                self.call_from_thread(
+                    lambda: self.virtual_scroller.add_ai_response(f"❌ Add error: {e}")
+                    if self.virtual_scroller
+                    else None
+                )
+
+        import threading
+
+        thread = threading.Thread(target=add_task, daemon=True)
+        thread.start()
+
+    def _show_added_repos(self, repos: list[Repository]) -> None:
+        """Show confirmation after adding repositories."""
+        if self.virtual_scroller:
+            repo_names = ", ".join([r.repository for r in repos])
+            self.virtual_scroller.add_ai_response(
+                f"✅ Successfully added {len(repos)} repositories to monitoring:\n{repo_names}"
+            )
+
+    def on_command_prompt_command_submitted(self, message) -> None:
+        """Handle CommandSubmitted message from CommandPrompt widget."""
+        command = message.command
+        print(f"DEBUG: Received command via message: '{command}'")
 
         # Display the command in the virtual scroller
         if self.virtual_scroller:
@@ -288,10 +387,10 @@ class RepoManagerApp(App):
 
         # Process the command using our command processor
         result = self.command_processor.process_command(command)
-        print(f"DEBUG: Command processor result: {result}")  # Debug output
+        print(f"DEBUG: Command processor result: {result}")
 
         if result["type"] == "action":
-            await self.handle_action(result)
+            self.handle_action(result)
         elif result["type"] == "help":
             self.show_help_content(result)
         elif result["type"] == "unknown":
@@ -299,127 +398,14 @@ class RepoManagerApp(App):
         elif result["type"] == "error":
             self.show_error(result)
 
-    async def handle_action(self, result: dict[str, Any]) -> None:
-        """Handle action-type commands."""
-        action = result.get("action")
-
-        if action == "show_repositories":
-            # Load and display repositories using real service
-            if self.virtual_scroller:
-                from ..services.repository import repo_service
-                
-                # Get real repositories
-                repos = list(repo_service.repositories.values())
-                if not repos:
-                    # No repositories loaded, try to discover
-                    repos = repo_service.discover_repositories("*")
-                
-                if repos:
-                    self.virtual_scroller.add_repository_table(repos)
-                    self.virtual_scroller.add_ai_response(
-                        f"Here are your {len(repos)} repositories. Click any row to interact with them."
-                    )
-                else:
-                    self.virtual_scroller.add_ai_response(
-                        "No repositories found. Use 'load repos' to discover repositories or check your mgit configuration."
-                    )
-
-        elif action == "show_status":
-            # Show status summary using real data
-            if self.virtual_scroller:
-                from ..services.repository import repo_service
-                
-                # Get real status counts
-                all_repos = list(repo_service.repositories.values())
-                
-                if all_repos:
-                    success_count = sum(1 for repo in all_repos if repo.sync_status == "success")
-                    failed_count = sum(1 for repo in all_repos if repo.sync_status == "failed")
-                    syncing_count = sum(1 for repo in all_repos if repo.sync_status == "syncing")
-                    unknown_count = len(all_repos) - success_count - failed_count - syncing_count
-                    
-                    status_msg = f"Repository Status Summary\n"
-                    status_msg += f"Success: {success_count}\n"
-                    status_msg += f"Failed: {failed_count}\n"
-                    status_msg += f"Syncing: {syncing_count}\n"
-                    status_msg += f"Unknown: {unknown_count}\n"
-                    
-                    self.virtual_scroller.add_ai_response(status_msg)
-                else:
-                    self.virtual_scroller.add_ai_response(
-                        "No repositories loaded. Use 'load repos' first."
-                    )
-
-        elif action == "load_repositories":
-            # Load repositories from mgit discovery
-            if self.virtual_scroller:
-                try:
-                    real_repos = self.load_real_repositories()
-                    if real_repos:
-                        self.virtual_scroller.add_repository_table(real_repos)
-                        self.virtual_scroller.add_ai_response(
-                            f"Loaded {len(real_repos)} repositories from mgit discovery"
-                        )
-                    else:
-                        self.virtual_scroller.add_ai_response(
-                            "mgit found no repositories matching the search pattern"
-                        )
-                except Exception as e:
-                    self.virtual_scroller.add_ai_response(
-                        f"mgit discovery failed: {str(e)}"
-                    )
-
-        elif action == "filter_repositories":
-            filter_criteria = result.get("filter", {})
-            status_filter = filter_criteria.get("status")
-            
-            if self.virtual_scroller:
-                from ..services.repository import repo_service
-                
-                if status_filter == "failed":
-                    # Get repositories filtered by status
-                    failed_repos = repo_service.get_repositories_by_status("failed")
-                    
-                    if failed_repos:
-                        self.virtual_scroller.add_repository_table(failed_repos)
-                        self.virtual_scroller.add_ai_response(
-                            f"Found {len(failed_repos)} failed repositories"
-                        )
-                    else:
-                        # Also check for unknown status repos (not cloned)
-                        unknown_repos = repo_service.get_repositories_by_status("unknown")
-                        if unknown_repos:
-                            self.virtual_scroller.add_repository_table(unknown_repos)
-                            self.virtual_scroller.add_ai_response(
-                                f"Found {len(unknown_repos)} uncloned repositories"
-                            )
-                        else:
-                            self.virtual_scroller.add_ai_response(
-                                "No failed or uncloned repositories found"
-                            )
-                            
-                elif status_filter == "success":
-                    # Get successful repositories
-                    success_repos = repo_service.get_repositories_by_status("success")
-                    
-                    if success_repos:
-                        self.virtual_scroller.add_repository_table(success_repos)
-                        self.virtual_scroller.add_ai_response(
-                            f"Found {len(success_repos)} successful repositories"
-                        )
-                    else:
-                        self.virtual_scroller.add_ai_response(
-                            "No successful repositories found"
-                        )
-
     def show_help_content(self, result: dict[str, Any]) -> None:
         """Show help content."""
+        help_content = result.get("content", "Help content not available")
         if self.virtual_scroller:
             self.virtual_scroller.add_ai_response(
                 "💡 Help System Available\n\nCommands:\n- list - Show all repositories\n- status - Show repository status\n- show failed - Show only failed repos\n- help - Show this help\n\nKey Bindings:\n- ? - Show help\n- T - Cycle themes\n- Q - Quit application"
             )
         self.notify("💡 Help", title="Available Commands", timeout=2.0)
-        # In a full implementation, we'd show this in a modal or dedicated area
 
     def show_unknown_command(self, result: dict[str, Any]) -> None:
         """Handle unknown commands."""
@@ -445,98 +431,122 @@ class RepoManagerApp(App):
             )
         self.notify(f"❌ {message}", title="Error", severity="error", timeout=2.0)
 
-    def on_table_row_selected(self, event: TableRowSelected) -> None:
-        """Handle table row selection."""
-        row_data = event.row_data
-        repo_name = row_data.get("repository", "Unknown")
-        status = row_data.get("sync_status", "unknown")
-        self.notify(
-            f"📁 Selected: {repo_name} ({status})", title="Repository Selected", timeout=2.0
-        )
+    def handle_action(self, result: dict[str, Any]) -> None:
+        """Handle action-type commands."""
+        action = result.get("action")
 
-        # Add AI response about the selected repository
-        if self.virtual_scroller:
-            self.virtual_scroller.add_ai_response(
-                f"You selected '{repo_name}' with status '{status}'. What would you like to do with this repository?\n\nOptions:\n- View details\n- Retry sync\n- Open in browser\n- View logs"
-            )
+        if action == "show_repositories":
+            # Load and display repositories using real service
+            if self.virtual_scroller:
+                from ..services.repository import repo_service
 
-    def on_table_action_selected(self, event: TableActionSelected) -> None:
-        """Handle table action selection."""
-        actions = event.actions
-        self.notify(
-            f"🎯 Available actions: {', '.join(actions)}", title="Actions Available", timeout=3.0
-        )
+                # Get real repositories
+                repos = list(repo_service.repositories.values())
+                if not repos:
+                    # No repositories loaded, try to discover
+                    repos = repo_service.discover_repositories()
 
-        # Add AI response with action options
-        if self.virtual_scroller:
-            action_list = "\n".join(f"- {action}" for action in actions)
-            self.virtual_scroller.add_ai_response(
-                f"Available actions:\n{action_list}\n\nClick an action or type a command to proceed."
-            )
+                if repos:
+                    self.virtual_scroller.add_repository_table(repos)
+                    self.virtual_scroller.add_ai_response(
+                        f"Here are your {len(repos)} repositories. Click any row to interact with them."
+                    )
+                else:
+                    self.virtual_scroller.add_ai_response(
+                        "No repositories found. Use 'load repos' to discover repositories or check your mgit configuration."
+                    )
 
-    def action_show_help(self) -> None:
-        """Show help when ? is pressed."""
-        help_text = """
-[b]Available Commands:[/b]
-- [cyan]list[/cyan] - Show all repositories
-- [cyan]status[/cyan] - Show repository status summary
-- [cyan]show failed[/cyan] - Show only failed repositories
-- [cyan]sync all[/cyan] - Sync all repositories
-- [cyan]add <url>[/cyan] - Add a new repository
-- [cyan]help[/cyan] - Show this help
+        elif action == "show_status":
+            # Show status summary using real data
+            if self.virtual_scroller:
+                from ..services.repository import repo_service
 
-[b]Key Bindings:[/b]
-- [yellow]?[/yellow] - Show help
-- [yellow]T[/yellow] - Cycle themes
-- [yellow]Q[/yellow] - Quit application
-- [yellow]up/down arrows[/yellow] - Navigate command history
-        """.strip()
-        # Add help content to the virtual scroller instead of using a notification
-        if self.virtual_scroller:
-            self.virtual_scroller.add_ai_response(f"🆘 Help System\n\n{help_text}")
-            self.virtual_scroller.add_text_message("? (help)", "system")
+                # Get real status counts
+                all_repos = list(repo_service.repositories.values())
 
-    def action_cycle_theme(self) -> None:
-        """Cycle through available themes."""
-        if not self._available_themes:
-            self.notify("No themes available", title="Theme Error", severity="error")
-            return
+                if all_repos:
+                    success_count = sum(1 for repo in all_repos if repo.sync_status == "success")
+                    failed_count = sum(1 for repo in all_repos if repo.sync_status == "failed")
+                    syncing_count = sum(1 for repo in all_repos if repo.sync_status == "syncing")
+                    unknown_count = len(all_repos) - success_count - failed_count - syncing_count
 
-        self.current_theme_index = (self.current_theme_index + 1) % len(self._available_themes)
-        new_theme_name = self._available_themes[self.current_theme_index]
+                    status_msg = "Repository Status Summary\n"
+                    status_msg += f"Success: {success_count}\n"
+                    status_msg += f"Failed: {failed_count}\n"
+                    status_msg += f"Syncing: {syncing_count}\n"
+                    status_msg += f"Unknown: {unknown_count}\n"
 
-        # Use Textual's built-in theme switching
-        self.theme = new_theme_name
-        self.notify(f"Switched to {new_theme_name} theme", timeout=2.0)
+                    self.virtual_scroller.add_ai_response(status_msg)
+                else:
+                    self.virtual_scroller.add_ai_response(
+                        "No repositories loaded. Use 'load repos' first."
+                    )
 
-        # Also add to virtual scroller
-        if self.virtual_scroller:
-            self.virtual_scroller.add_text_message(f"Theme changed to {new_theme_name}", "system")
+        elif action == "load_repositories":
+            # Load repositories from mgit discovery
+            if self.virtual_scroller:
+                try:
+                    real_repos = self.load_real_repositories()
+                    if real_repos:
+                        self.virtual_scroller.add_repository_table(real_repos)
+                        self.virtual_scroller.add_ai_response(
+                            f"Loaded {len(real_repos)} repositories from mgit discovery"
+                        )
+                    else:
+                        self.virtual_scroller.add_ai_response(
+                            "mgit discovery found no repositories in the configured sync directory"
+                        )
+                except Exception as e:
+                    self.virtual_scroller.add_ai_response(f"Filesystem scan failed: {e!s}")
 
-    def action_open_theme_editor(self) -> None:
-        """Open the interactive theme editor."""
-        from textual.screen import ModalScreen
+        elif action == "filter_repositories":
+            filter_criteria = result.get("filter", {})
+            status_filter = filter_criteria.get("status")
 
-        class ThemeEditorScreen(ModalScreen):
-            """Modal screen for the theme editor."""
+            if self.virtual_scroller:
+                from ..services.repository import repo_service
 
-            def compose(self) -> ComposeResult:
-                yield ThemeEditor()
+                if status_filter == "failed":
+                    # Get repositories filtered by status
+                    failed_repos = repo_service.get_repositories_by_status("failed")
 
-            def on_theme_editor_edit_color_requested(self, event) -> None:
-                """Handle color edit requests from the editor."""
-                # Forward to main app if needed
+                    if failed_repos:
+                        self.virtual_scroller.add_repository_table(failed_repos)
+                        self.virtual_scroller.add_ai_response(
+                            f"Found {len(failed_repos)} failed repositories"
+                        )
+                    else:
+                        # Also check for unknown status repos (not cloned)
+                        unknown_repos = repo_service.get_repositories_by_status("unknown")
+                        if unknown_repos:
+                            self.virtual_scroller.add_repository_table(unknown_repos)
+                            self.virtual_scroller.add_ai_response(
+                                f"Found {len(unknown_repos)} uncloned repositories"
+                            )
+                        else:
+                            self.virtual_scroller.add_ai_response(
+                                "No failed or uncloned repositories found"
+                            )
 
-            def on_color_palette_color_chosen(self, event) -> None:
-                """Handle color selection from palette."""
-                # Forward to main app if needed
+                elif status_filter == "success":
+                    # Get successful repositories
+                    success_repos = repo_service.get_repositories_by_status("success")
 
-        self.push_screen(ThemeEditorScreen())
+                    if success_repos:
+                        self.virtual_scroller.add_repository_table(success_repos)
+                        self.virtual_scroller.add_ai_response(
+                            f"Found {len(success_repos)} successful repositories"
+                        )
+                    else:
+                        self.virtual_scroller.add_ai_response("No successful repositories found")
 
+        elif action == "repo_find":
+            # Handle repository discovery
+            pattern = result.get("pattern")
+            limit = result.get("limit", 50)
+            self.handle_repo_find_command(pattern, limit)
 
-if __name__ == "__main__":
-    import sys
-
-    theme_name = sys.argv[1] if len(sys.argv) > 1 else "default"
-    app = RepoManagerApp(theme_name=theme_name)
-    app.run()
+        elif action == "repo_add":
+            # Handle adding repositories to monitoring
+            pattern = result.get("pattern")
+            self.handle_repo_add_command(pattern)

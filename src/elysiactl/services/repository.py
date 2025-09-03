@@ -1,11 +1,115 @@
 """Repository data management and JSONL file handling."""
 
 import json
+import signal
+import subprocess
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import jsonlines
+
+
+class SubprocessManager:
+    """Manages long-running subprocess operations with proper tracking and cleanup."""
+
+    def __init__(self):
+        self.active_processes: dict[str, subprocess.Popen] = {}
+        self.process_lock = threading.Lock()
+        self._shutdown_event = threading.Event()
+
+    def start_process(self, operation_id: str, cmd: list[str], **kwargs) -> subprocess.Popen:
+        """Start a tracked subprocess."""
+        with self.process_lock:
+            if operation_id in self.active_processes:
+                raise RuntimeError(f"Operation {operation_id} already running")
+
+            # Set up signal handling for clean shutdown
+            def cleanup_handler(signum, frame):
+                self.cancel_operation(operation_id)
+
+            old_handler = signal.signal(signal.SIGINT, cleanup_handler)
+            old_term_handler = signal.signal(signal.SIGTERM, cleanup_handler)
+
+            try:
+                # Start process with proper setup
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=kwargs.get("stdout", subprocess.PIPE),
+                    stderr=kwargs.get("stderr", subprocess.PIPE),
+                    text=kwargs.get("text", True),
+                    **{k: v for k, v in kwargs.items() if k not in ["stdout", "stderr", "text"]},
+                )
+
+                self.active_processes[operation_id] = process
+                return process
+
+            finally:
+                # Restore original signal handlers
+                signal.signal(signal.SIGINT, old_handler)
+                signal.signal(signal.SIGTERM, old_term_handler)
+
+    def cancel_operation(self, operation_id: str) -> bool:
+        """Cancel a running operation."""
+        with self.process_lock:
+            if operation_id in self.active_processes:
+                process = self.active_processes[operation_id]
+                try:
+                    process.terminate()
+                    # Give it time to terminate gracefully
+                    try:
+                        process.wait(timeout=5.0)
+                    except subprocess.TimeoutExpired:
+                        process.kill()  # Force kill if it doesn't respond
+                    return True
+                except Exception:
+                    # Process might already be dead
+                    pass
+                finally:
+                    del self.active_processes[operation_id]
+        return False
+
+    def wait_for_completion(self, operation_id: str, timeout: float | None = None) -> int | None:
+        """Wait for operation to complete with optional timeout."""
+        with self.process_lock:
+            if operation_id not in self.active_processes:
+                return None
+
+            process = self.active_processes[operation_id]
+
+        try:
+            if timeout:
+                return process.wait(timeout=timeout)
+            else:
+                return process.wait()
+        except subprocess.TimeoutExpired:
+            return None
+        finally:
+            with self.process_lock:
+                self.active_processes.pop(operation_id, None)
+
+    def get_active_operations(self) -> list[str]:
+        """Get list of currently active operation IDs."""
+        with self.process_lock:
+            return list(self.active_processes.keys())
+
+    def cleanup_all(self):
+        """Clean up all active processes."""
+        with self.process_lock:
+            for operation_id in list(self.active_processes.keys()):
+                self.cancel_operation(operation_id)
+
+    def is_operation_active(self, operation_id: str) -> bool:
+        """Check if an operation is currently active."""
+        with self.process_lock:
+            return operation_id in self.active_processes
+
+
+# Global subprocess manager instance
+subprocess_manager = SubprocessManager()
 
 
 @dataclass
@@ -48,55 +152,141 @@ class RepositoryService:
         repositories = []
 
         try:
+            # Read the entire file content first for debugging
+            with open(jsonl_path) as f:
+                content = f.read().strip()
+                print(f"DEBUG: JSONL file content length: {len(content)}")
+                print(f"DEBUG: First 200 chars: {content[:200]}")
+
+            # Parse as JSONL (one JSON object per line)
             with jsonlines.open(jsonl_path) as reader:
-                for line in reader:
-                    # Handle both mgit list format and diff-remote format
-                    if "organization" in line:
-                        # mgit list format
-                        repo = Repository(
-                            organization=line["organization"],
-                            project=line["project"],
-                            repository=line["repository"],
-                            clone_url=line["clone_url"],
-                            ssh_url=line["ssh_url"],
-                            default_branch=line["default_branch"],
-                            is_private=line["is_private"],
-                            description=line.get("description"),
-                        )
-                        repositories.append(repo)
-                        self.repositories[repo.full_name] = repo
+                for line_num, line in enumerate(reader, 1):
+                    try:
+                        # Handle both mgit list format and diff-remote format
+                        if "organization" in line:
+                            # mgit list format
+                            repo = Repository(
+                                organization=line["organization"],
+                                project=line["project"],
+                                repository=line["repository"],
+                                clone_url=line["clone_url"],
+                                ssh_url=line["ssh_url"],
+                                default_branch=line["default_branch"],
+                                is_private=line["is_private"],
+                                description=line.get("description"),
+                            )
+                            repositories.append(repo)
+                            self.repositories[repo.full_name] = repo
+                    except Exception as e:
+                        print(f"Error parsing line {line_num}: {e}")
+                        print(f"Line content: {line}")
+                        continue
 
         except Exception as e:
             print(f"Error loading JSONL file {jsonl_path}: {e}")
+            # Try to parse as regular JSON if JSONL fails
+            try:
+                with open(jsonl_path) as f:
+                    content = f.read().strip()
+                    if content:
+                        # Parse as JSON array
+                        data = json.loads(content)
+                        if isinstance(data, list):
+                            for item in data:
+                                if "organization" in item:
+                                    repo = Repository(
+                                        organization=item["organization"],
+                                        project=item["project"],
+                                        repository=item["repository"],
+                                        clone_url=item["clone_url"],
+                                        ssh_url=item["ssh_url"],
+                                        default_branch=item["default_branch"],
+                                        is_private=item["is_private"],
+                                        description=item.get("description"),
+                                    )
+                                    repositories.append(repo)
+                                    self.repositories[repo.full_name] = repo
+            except Exception as json_e:
+                print(f"Failed to parse as JSON either: {json_e}")
 
         return repositories
 
-    def discover_repositories(self, pattern: str, provider: str | None = None) -> list[Repository]:
-        """Discover repositories using mgit and return Repository objects."""
-        import subprocess
+    def discover_repositories(
+        self, pattern: str = "*", limit: int | None = None, timeout: int = 300
+    ) -> list[Repository]:
+        """Discover repositories using mgit with proper subprocess management."""
         import tempfile
+
+        from ..config.settings import config
+
+        # Get comprehensive mgit information
+        mgit_info = config.get_mgit_info()
+
+        # Fail fast if mgit is not available
+        if not mgit_info["effective_path"]:
+            if mgit_info["configured_path"]:
+                error_msg = f"Configured mgit path not found: {mgit_info['configured_path']}"
+            else:
+                error_msg = "mgit not found. Please configure 'tools.mgit_path' in ~/.elysiactl/settings.yaml or ensure mgit is in PATH"
+
+            print(f"Error: {error_msg}")
+            print("\nTo fix this:")
+            print("1. Install mgit and add to PATH, OR")
+            print("2. Set path in ~/.elysiactl/settings.yaml:")
+            print("   tools:")
+            print('     mgit_path: "/path/to/mgit"')
+            return []
+
+        mgit_path = mgit_info["effective_path"]
+
+        # Display mgit information
+        self._display_mgit_info(mgit_info)
+
+        operation_id = f"discover_{pattern}_{int(time.time())}"
 
         # Create temporary file for mgit output
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".jsonl", delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
         try:
-            # Build mgit command
-            cmd = ["mgit", "list", pattern, "--format", "json"]
+            # Build mgit command with optional limit
+            cmd = [mgit_path, "list", pattern, "--format", "json"]
+            if limit is not None and limit > 0:
+                cmd.extend(["--limit", str(limit)])
 
-            if provider:
-                cmd.extend(["--provider", provider])
+            print(f"Starting repository discovery: {' '.join(cmd)}")
 
-            # Redirect output to temporary file
-            with open(tmp_path, "w") as outfile:
-                result = subprocess.run(cmd, stdout=outfile, stderr=subprocess.PIPE, text=True)
+            # Start tracked subprocess
+            process = subprocess_manager.start_process(
+                operation_id, cmd, stdout=open(tmp_path, "w"), stderr=subprocess.PIPE
+            )
 
-            if result.returncode == 0:
-                return self.load_from_jsonl(tmp_path)
-            else:
-                print(f"Error running mgit: {result.stderr}")
+            # Wait for completion with timeout
+            print(f"Discovery operation '{operation_id}' started...")
+
+            try:
+                # Wait for the process to complete with timeout
+                return_code = subprocess_manager.wait_for_completion(operation_id, timeout=timeout)
+                if return_code is None:
+                    # Process timed out
+                    raise subprocess.TimeoutExpired(cmd, timeout)
+
+                if return_code == 0:
+                    print(f"Discovery completed successfully for pattern: {pattern}")
+                    return self.load_from_jsonl(tmp_path)
+                else:
+                    stderr_output = process.stderr.read() if process.stderr else "No error output"
+                    print(f"Error running mgit (return code {return_code}): {stderr_output}")
+                    return []
+
+            except subprocess.TimeoutExpired:
+                print(f"Repository discovery timed out after {timeout} seconds")
+                subprocess_manager.cancel_operation(operation_id)
                 return []
-
+        except Exception as e:
+            print(f"Error during repository discovery: {e}")
+            subprocess_manager.cancel_operation(operation_id)
+            return []
         finally:
             # Clean up temporary file
             tmp_path.unlink(missing_ok=True)
@@ -104,13 +294,14 @@ class RepositoryService:
     def get_repository_status(self, repo: Repository) -> str:
         """Get the sync status for a repository."""
         # Check if repository exists locally
-        import os
-        from pathlib import Path
-        
+
         # Try to find local repository path
         # This is a simple check - in production this would be more sophisticated
-        local_path = self._find_local_repo_path(repo)
-        
+        from ..config.settings import config
+
+        sync_dest = Path(config.get_sync_destination())
+        local_path = sync_dest / repo.organization / repo.project / repo.repository
+
         if local_path and local_path.exists():
             # Repository exists locally, check if it's up to date
             try:
@@ -174,67 +365,39 @@ class RepositoryService:
         with open(config_file, "w") as f:
             json.dump(config, f, indent=2)
 
-    def load_repository_config(self):
-        """Load repository configuration from disk."""
-        config_file = self.data_dir / "repositories.json"
+    def cleanup(self):
+        """Clean up resources and active subprocesses."""
+        subprocess_manager.cleanup_all()
 
-        if not config_file.exists():
-            return
+    def cancel_discovery(self, pattern: str) -> bool:
+        """Cancel an active discovery operation for a pattern."""
+        operation_id = f"discover_{pattern}"
+        return subprocess_manager.cancel_operation(operation_id)
 
-        try:
-            with open(config_file) as f:
-                config = json.load(f)
-
-            for repo_data in config.get("repositories", []):
-                repo = Repository(
-                    organization=repo_data["organization"],
-                    project=repo_data["project"],
-                    repository=repo_data["repository"],
-                    clone_url=repo_data["clone_url"],
-                    ssh_url=repo_data["ssh_url"],
-                    default_branch=repo_data["default_branch"],
-                    is_private=repo_data["is_private"],
-                    description=repo_data.get("description"),
-                    sync_status=repo_data.get("sync_status", "unknown"),
-                )
-
-                if repo_data.get("last_sync"):
-                    repo.last_sync = datetime.fromisoformat(repo_data["last_sync"])
-
-                self.repositories[repo.full_name] = repo
-
-        except Exception as e:
-            print(f"Error loading repository config: {e}")
-
-
-    def _find_local_repo_path(self, repo: Repository) -> Path | None:
-        """Find the local path for a repository if it exists."""
-        from pathlib import Path
-        
-        # Common locations to check for repositories
-        search_paths = [
-            Path.home() / "repos" / repo.repository,
-            Path.home() / "git" / repo.repository, 
-            Path.home() / "projects" / repo.repository,
-            Path.home() / "workspace" / repo.repository,
-            Path.cwd() / repo.repository,  # Current directory
-            Path.cwd() / "repos" / repo.repository,  # repos subdirectory
+    def get_active_discoveries(self) -> list[str]:
+        """Get list of active discovery operations."""
+        return [
+            op for op in subprocess_manager.get_active_operations() if op.startswith("discover_")
         ]
-        
-        # Also check for org/project/repo structure
-        search_paths.extend([
-            Path.home() / "repos" / repo.organization / repo.project / repo.repository,
-            Path.home() / "git" / repo.organization / repo.project / repo.repository,
-            Path.home() / "projects" / repo.organization / repo.project / repo.repository,
-            Path.cwd() / repo.organization / repo.project / repo.repository,
-        ])
-        
-        # Check each potential path
-        for path in search_paths:
-            if path.exists() and path.is_dir():
-                return path
-                
-        return None
+
+    def _display_mgit_info(self, mgit_info: dict[str, Any]):
+        """Display comprehensive mgit information."""
+        print("\n--- mgit Information ---")
+        print(f"Path: {mgit_info['effective_path']}")
+
+        if mgit_info["version"]:
+            print(f"Version: {mgit_info['version']}")
+        else:
+            print("Version: Unknown")
+
+        print(f"Source: {mgit_info['source']}")
+
+        if mgit_info["configured_path"] and mgit_info["source"] == "configured":
+            print("Configured path is being used")
+        elif mgit_info["path_found"] and mgit_info["source"] == "PATH":
+            print("Found in PATH")
+
+        print("---\n")
 
 
 # Global service instance

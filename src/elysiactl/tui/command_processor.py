@@ -23,10 +23,16 @@ class CommandProcessor:
             r"list.*fail": self.show_failed_repositories,
             r"show.*success": self.show_successful_repositories,
             r"list.*success": self.show_successful_repositories,
+            # Discovery commands
+            r"find.*repo": self.find_repositories,
+            r"discover.*repo": self.find_repositories,
+            r"search.*repo": self.find_repositories,
+            # Add/Monitor commands
+            r"add.*repo": self.add_repositories,
+            r"monitor.*repo": self.add_repositories,
             # Load/discovery commands
-            r"load.*repo": self.load_repositories,
-            r"discover.*repo": self.load_repositories,
-            r"scan.*repo": self.load_repositories,
+            r"load.*repo": self.find_repositories,
+            r"scan.*repo": self.find_repositories,
             # Help commands
             r"help": self.show_help,
             r"\?": self.show_help,
@@ -87,14 +93,66 @@ class CommandProcessor:
             "command": command,
         }
 
+    def find_repositories(self, command: str) -> dict[str, Any]:
+        """Find/discover repositories using mgit."""
+        # Extract pattern from command
+        pattern = self._extract_pattern(command)
+        if not pattern:
+            # For backward compatibility with "load repos" commands
+            return {
+                "type": "action",
+                "action": "load_repositories",
+                "message": "Loading repositories from mgit discovery",
+                "command": command,
+            }
+
+        return {
+            "type": "repo_find",
+            "pattern": pattern,
+            "message": f"Finding repositories with pattern: {pattern}",
+            "command": command,
+        }
+
+    def add_repositories(self, command: str) -> dict[str, Any]:
+        """Add repositories to monitoring."""
+        # Extract pattern if specified
+        pattern = self._extract_pattern(command)
+
+        return {
+            "type": "repo_add",
+            "pattern": pattern,
+            "message": f"Adding repositories{' with pattern: ' + pattern if pattern else ' from selection'} to monitoring",
+            "command": command,
+        }
+
     def load_repositories(self, command: str) -> dict[str, Any]:
-        """Load/discover repositories."""
+        """Load/discover repositories (backward compatibility)."""
         return {
             "type": "action",
             "action": "load_repositories",
             "message": "Loading repositories from mgit discovery",
             "command": command,
         }
+
+    def _extract_pattern(self, command: str) -> str | None:
+        """Extract repository pattern from command."""
+        # Look for quoted strings or word after "repos"
+        import re
+
+        # Find quoted strings
+        quoted = re.findall(r'["\']([^"\']+)["\']', command)
+        if quoted:
+            return quoted[0]
+
+        # Find pattern after "repos" or "repo"
+        match = re.search(r"repo(?:s)?\s+(\S+)", command.lower())
+        if match:
+            pattern = match.group(1)
+            # Skip if it's a common word
+            if pattern not in ["to", "from", "with", "and", "the", "for"]:
+                return pattern
+
+        return None
 
     def show_successful_repositories(self, command: str) -> dict[str, Any]:
         """Show only successful repositories."""
@@ -106,28 +164,45 @@ class CommandProcessor:
             "command": command,
         }
 
+    def show_failed_repositories(self, command: str) -> dict[str, Any]:
+        """Show only failed repositories."""
+        return {
+            "type": "action",
+            "action": "filter_repositories",
+            "filter": {"status": "failed"},
+            "message": "Showing failed repositories",
+            "command": command,
+        }
+
     def show_help(self, command: str = "") -> dict[str, Any]:
         """Show available commands."""
         help_text = """
-Available commands:
-• "show repos" or "list repos" - Display all repositories
-• "load repos" or "discover repos" - Load repositories from mgit
-• "show status" - Show repository status summary
-• "show failed repos" - Show only failed repositories
-• "show success repos" - Show only successful repositories
-• "help" or "?" - Show this help message
+Repository Management TUI
 
-You can also use natural language like:
-• "what repositories do I have?"
-• "show me the failed ones"
-• "display repo status"
-• "find failing repositories"
-• "scan for new repos"
+Commands:
+• "find repos <pattern>" - Discover repositories using mgit
+• "add repos [pattern]" - Add discovered repos to monitoring
+• "show repos" - Display all monitored repositories
+• "status" - Show repository status summary
+• "show failed" - Show only failed repositories
+• "show success" - Show only successful repositories
+• "help" - Show this help
+
+Examples:
+• find repos "pdidev/*/*"
+• find repos "p97networks/Loyalty-Platform/*"
+• add repos
+• show repos
+
+Pattern Examples:
+• "org/*/*" - All repos in organization
+• "org/project/*" - All repos in specific project
+• "org/*/*payment*" - Payment-related repos
         """.strip()
 
         return {
             "type": "help",
-            "message": "Here's what I can help you with:",
+            "message": "Repository Management Commands:",
             "content": help_text,
             "command": command or "help",
         }

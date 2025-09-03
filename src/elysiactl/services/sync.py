@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 
@@ -28,7 +28,7 @@ content_resolver = ContentResolver()
 class SQLiteCheckpointManager:
     """SQLite-based checkpoint system with atomic transactions."""
 
-    def __init__(self, state_dir: Optional[str] = None):
+    def __init__(self, state_dir: str | None = None):
         config = get_config()
         self.state_dir = Path(state_dir or config.processing.checkpoint_db_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -284,7 +284,7 @@ class SQLiteCheckpointManager:
                 "processed_lines": row["processed_lines"],
             }
 
-    def cleanup_old_runs(self, keep_days: Optional[int] = None):
+    def cleanup_old_runs(self, keep_days: int | None = None):
         """Clean up old completed runs and their data."""
         config = get_config()
         if keep_days is None:
@@ -785,8 +785,8 @@ async def sync_files_from_stdin(
     dry_run: bool = False,
     verbose: bool = False,
     use_stdin: bool = True,
-    batch_size: Optional[int] = None,
-    max_retries: Optional[int] = None,
+    batch_size: int | None = None,
+    max_retries: int | None = None,
     parallel: bool = True,
     max_workers: int = 8,
 ) -> bool:
@@ -848,7 +848,7 @@ async def sync_files_from_stdin_async(
     dry_run: bool = False,
     verbose: bool = False,
     use_stdin: bool = True,
-    batch_size: Optional[int] = None,
+    batch_size: int | None = None,
     parallel: bool = True,
     max_workers: int = 8,
 ) -> bool:

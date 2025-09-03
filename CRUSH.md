@@ -48,5 +48,48 @@ except Exception as e:
 - **NEVER include AI attribution** in commits, code comments, or git user config
 - Git user: Steve Antonakakis (steve.antonakakis@gmail.com)
 - **Communication**: Focus on failures/issues, not successes
-- **⚠️ IMPORTANT**: Do NOT run interactive TUI applications as they will block the terminal</content>
+- **⚠️ IMPORTANT**: Do NOT run interactive TUI applications as they will block the terminal
+- **🚫 NO BACKWARDS COMPATIBILITY**: This is a new application. We will NEVER maintain backwards compatibility, legacy code, or deprecated APIs. If something needs to change, it changes immediately without consideration for existing usage. Complexity from backwards compatibility is not tolerated.
+
+## Architectural Guardrails
+
+### Core Thesis Protection
+- **mgit Authority**: `mgit` is the sole source for repository discovery and differentials. `elysiactl` only consumes streams.
+- **No Filesystem Scanning**: Never implement local file walking—always delegate to mgit subprocess.
+- **Stream Consumption**: All operations must process mgit output streams, not parse local git repos.
+- **Configuration Over Hardcoding**: All paths, patterns, and endpoints must be configurable.
+
+### Development Checkpoints
+Before implementing any feature:
+1. Does this use mgit as the authority? (Must answer YES)
+2. Is there any local filesystem scanning? (Must answer NO)
+3. Are streams consumed properly? (Must answer YES)
+4. Is everything configurable? (Must answer YES)
+
+### Past Deviations (Lessons Learned)
+- **Filesystem Pivot**: Attempted local repo scanning—corrected back to mgit integration.
+- **Direct Git Calls**: Replaced with mgit subprocess for single source of truth.
+- **Hardcoded URLs**: Moved to environment variables and config files.
+- **User Message Drift**: Fixed to reflect actual mgit operations, not filesystem actions.
+
+### Validation Commands
+Run these to verify alignment:
+```bash
+# Check for mgit integration
+grep -r "mgit" src/elysiactl/
+
+# Check for filesystem scanning (should be minimal/only for config)
+grep -r "Path\|os\.walk\|glob" src/elysiactl/
+
+# Check for hardcoded paths (should use config)
+grep -r "http://localhost\|/opt/weaviate" src/elysiactl/
+```
+
+### Quick Reference
+- **Wrong**: `elysiactl` scans local filesystem for repos
+- **Right**: `elysiactl` calls `mgit list` and processes the JSONL stream
+- **Wrong**: Parse local .git directories
+- **Right**: Consume `mgit diff` output streams
+- **Wrong**: Hardcoded `/opt/weaviate/repos/*`
+- **Right**: Configurable `sync.destination_path`</content>
 <parameter name="file_path">/opt/elysiactl/CRUSH.md

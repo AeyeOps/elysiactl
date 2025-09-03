@@ -452,11 +452,11 @@ class TestProductionReadiness:
             'ELYSIACTL_MAX_WORKERS': '12',
             'WCD_URL': 'http://test-weaviate:8080'
         }):
-            config = reload_config()  # Reload to pick up env vars
+            config = ConfigManager()  # Reload to pick up env vars
             
-            assert config.processing.batch_size == 150, "Should override batch size from env"
-            assert config.processing.max_workers == 12, "Should override max workers from env"
-            assert config.services.WCD_URL == 'http://test-weaviate:8080', "Should override Weaviate URL"
+            assert config.get('processing.batch_size') == 150, "Should override batch size from env"
+            assert config.get('processing.max_workers') == 12, "Should override max workers from env"
+            assert config.get('services.WCD_URL') == 'http://test-weaviate:8080', "Should override Weaviate URL"
     
     def test_error_monitoring_commands(self, temp_workspace):
         """Test error monitoring CLI commands."""

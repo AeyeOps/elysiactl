@@ -17,58 +17,141 @@ app = typer.Typer(
 )
 
 
-@app.command("add")
-def add_repo(
-    repo_pattern: Annotated[
-        str, typer.Argument(help="Repository pattern (org/repo or org/project/repo)")
+@app.command("find")
+def find_repos(
+    pattern: Annotated[
+        str, typer.Argument(help="Repository pattern (org/project/*, */project/*, etc.)")
     ],
-    watch: Annotated[bool, typer.Option("--watch", "-w", help="Monitor for changes")] = False,
-    provider: Annotated[
-        str | None, typer.Option("--provider", "-p", help="Specific git provider")
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-l", help="Limit number of results (default: no limit)"),
     ] = None,
+    timeout: Annotated[
+        int, typer.Option("--timeout", "-t", help="Timeout in seconds (default: 300)")
+    ] = 300,
 ):
-    """Add repositories to monitoring."""
-    console.print(f"🔍 Discovering repositories: {repo_pattern}")
-    if watch:
-        console.print("👀 Watch mode enabled - will monitor for changes")
+    """Find repositories matching a pattern across configured providers."""
+    console.print(f"🔍 Finding repositories: {pattern}")
 
     try:
-        # Discover repositories using mgit integration
-        repositories = repo_service.discover_repositories(repo_pattern, provider)
+        # Discover repositories using our comprehensive mgit integration
+        repositories = repo_service.discover_repositories(
+            pattern=pattern, limit=limit, timeout=timeout
+        )
 
         if repositories:
-            console.print(f"✅ Found {len(repositories)} repositories")
+            console.print(f"✅ Found {len(repositories)} repositories matching '{pattern}'")
 
             # Display discovered repositories
-            table = Table(title="Discovered Repositories")
-            table.add_column("Repository", style="cyan")
-            table.add_column("Project", style="magenta")
+            table = Table(title=f"Repositories matching '{pattern}'")
+            table.add_column("Organization", style="cyan", no_wrap=True)
+            table.add_column("Project", style="magenta", no_wrap=True)
+            table.add_column("Repository", style="green", no_wrap=True)
             table.add_column("Private", style="yellow")
-            table.add_column("Branch", style="green")
+            table.add_column("Branch", style="blue")
 
-            for repo in repositories[:10]:  # Show first 10
+            for repo in repositories:
                 table.add_row(
-                    repo.repository,
+                    repo.organization,
                     repo.project,
+                    repo.repository,
                     "🔒" if repo.is_private else "🌐",
                     repo.default_branch,
                 )
 
             console.print(table)
 
-            if len(repositories) > 10:
-                console.print(f"... and {len(repositories) - 10} more repositories")
+            if limit and len(repositories) >= limit:
+                console.print(f"💡 Showing first {limit} results. Use --limit to see more.")
 
-            # Save repository configuration
+            console.print("\n💡 Next steps:")
+            console.print("   • Use 'elysiactl repo tui' for interactive selection")
+            console.print("   • Use 'elysiactl repo add <pattern>' to add to monitoring")
+        else:
+            console.print("❌ No repositories found matching pattern")
+            console.print("💡 Pattern examples:")
+            console.print("   • 'pdidev/*/*' - All repos in pdidev organization")
+            console.print("   • 'pdidev/LogisticsCloud/*' - All repos in specific project")
+            console.print("   • 'pdidev/*/*payment*' - Payment-related repos across projects")
+
+    except Exception as e:
+        console.print(f"❌ Error finding repositories: {e}")
+
+
+@app.command("add")
+def add_repo(
+    pattern: Annotated[str, typer.Argument(help="Repository pattern to add to monitoring")],
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", "-l", help="Limit number of repos to add (default: no limit)"),
+    ] = None,
+    confirm: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation prompt")] = False,
+):
+    """Add repositories matching pattern to monitoring."""
+    console.print(f"🔍 Discovering repositories: {pattern}")
+
+    try:
+        # Discover repositories using our comprehensive mgit integration
+        repositories = repo_service.discover_repositories(pattern=pattern, limit=limit)
+
+        if repositories:
+            console.print(f"✅ Found {len(repositories)} repositories matching '{pattern}'")
+
+            # Show what will be added
+            table = Table(title="Repositories to be added to monitoring")
+            table.add_column("Organization", style="cyan", no_wrap=True)
+            table.add_column("Project", style="magenta", no_wrap=True)
+            table.add_column("Repository", style="green", no_wrap=True)
+
+            for repo in repositories:
+                table.add_row(repo.organization, repo.project, repo.repository)
+
+            console.print(table)
+
+            # Confirmation prompt (unless --yes is used)
+            if not confirm:
+                if len(repositories) > 10:
+                    console.print(
+                        f"⚠️  This will add {len(repositories)} repositories to monitoring."
+                    )
+                    console.print(
+                        "   You can manage them later with 'elysiactl repo list' and 'elysiactl repo remove'"
+                    )
+
+                response = typer.confirm("Add these repositories to monitoring?", default=True)
+                if not response:
+                    console.print("❌ Operation cancelled")
+                    return
+
+            # Add repositories to monitoring
+            added_count = 0
+            for repo in repositories:
+                if repo.full_name not in repo_service.repositories:
+                    repo_service.repositories[repo.full_name] = repo
+                    added_count += 1
+                else:
+                    console.print(f"⚠️  Repository {repo.display_name} already being monitored")
+
+            # Save the updated configuration
             repo_service.save_repository_config()
-            console.print("💾 Repository configuration saved")
+
+            if added_count > 0:
+                console.print(f"✅ Successfully added {added_count} repositories to monitoring")
+                console.print("💡 Next steps:")
+                console.print("   • Use 'elysiactl repo list' to see monitored repositories")
+                console.print("   • Use 'elysiactl repo sync' to sync all monitored repos")
+                console.print("   • Use 'elysiactl repo status' to check sync status")
+            else:
+                console.print("ℹ️  All discovered repositories were already being monitored")
 
         else:
             console.print("❌ No repositories found matching pattern")
-            console.print("💡 Try: 'pdidev/*/*' or 'myorg/project/*'")
+            console.print(
+                "💡 Try: 'elysiactl repo find <pattern>' to discover available repositories"
+            )
 
     except Exception as e:
-        console.print(f"❌ Error discovering repositories: {e}")
+        console.print(f"❌ Error adding repositories: {e}")
 
 
 @app.command("status")

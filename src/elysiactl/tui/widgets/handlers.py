@@ -1,9 +1,5 @@
 """Simplified handler classes for ConversationView."""
 
-import time
-from datetime import datetime
-from typing import Any, List, Dict, Optional
-
 
 class StartupAnimationHandler:
     """Handles the startup animation logic."""
