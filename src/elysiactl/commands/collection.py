@@ -1,16 +1,14 @@
 """Collection management commands for elysiactl."""
 
-import typer
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from pathlib import Path
 
-from ..services.weaviate_collections import (
-    WeaviateCollectionManager,
-    CollectionNotFoundError
-)
-from ..services.backup_restore import BackupManager, RestoreManager, ClearManager
+import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from ..services.backup_restore import BackupManager, ClearManager, RestoreManager
+from ..services.weaviate_collections import CollectionNotFoundError, WeaviateCollectionManager
 
 app = typer.Typer(help="Manage Weaviate collections")
 console = Console()
@@ -36,7 +34,7 @@ def print_success(message: str):
 def list_collections(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
     format: str = typer.Option("table", "--format", help="Output format: table, json"),
-    filter: str = typer.Option(None, "--filter", help="Filter collections by pattern")
+    filter: str = typer.Option(None, "--filter", help="Filter collections by pattern"),
 ):
     """List all Weaviate collections with optional filtering."""
     try:
@@ -44,6 +42,7 @@ def list_collections(
 
         if format == "json":
             import json
+
             console.print(json.dumps(collections, indent=2))
             return
 
@@ -91,7 +90,7 @@ def show_collection(
     name: str = typer.Argument(..., help="Collection name"),
     schema: bool = typer.Option(False, "--schema", help="Include schema information"),
     stats: bool = typer.Option(False, "--stats", help="Include detailed statistics"),
-    format: str = typer.Option("table", "--format", help="Output format")
+    format: str = typer.Option("table", "--format", help="Output format"),
 ):
     """Display detailed information about a specific collection."""
     try:
@@ -99,6 +98,7 @@ def show_collection(
 
         if format == "json":
             import json
+
             console.print(json.dumps(collection_info, indent=2))
             return
 
@@ -114,11 +114,7 @@ def show_collection(
             f"[bold]Protected:[/bold] {'Yes' if collection_info['protected'] else 'No'}",
         ]
 
-        panel = Panel(
-            "\n".join(info_lines),
-            title="Collection Details",
-            border_style="blue"
-        )
+        panel = Panel("\n".join(info_lines), title="Collection Details", border_style="blue")
         console.print(panel)
 
         if schema:
@@ -151,9 +147,13 @@ def show_collection(
 def backup_collection(
     name: str = typer.Argument(..., help="Collection name to backup"),
     output: Path = typer.Option("./backups", "--output", "-o", help="Output directory"),
-    include_data: bool = typer.Option(False, "--include-data", help="Include object data in backup"),
-    include_vectors: bool = typer.Option(False, "--include-vectors", help="Include vector embeddings (increases size significantly)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be backed up")
+    include_data: bool = typer.Option(
+        False, "--include-data", help="Include object data in backup"
+    ),
+    include_vectors: bool = typer.Option(
+        False, "--include-vectors", help="Include vector embeddings (increases size significantly)"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be backed up"),
 ):
     """Backup collection schema or full data."""
     try:
@@ -202,21 +202,23 @@ def restore_collection(
     except ValueError as e:
         print_error(f"Invalid backup file: {e}")
         raise typer.Exit(1)
+
+
 @app.command("clear", help="Clear all objects from a collection")
 def clear_collection(
     name: str = typer.Argument(..., help="Collection name to clear"),
     force: bool = typer.Option(False, "--force", help="Skip confirmation prompts"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleared")
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be cleared"),
 ):
     """Clear all objects from a collection with safety checks."""
     try:
         success = clear_manager.clear_collection(name, force, dry_run)
-        
+
         if success and not dry_run:
             print_success(f"Collection '{name}' cleared successfully")
         elif dry_run:
             console.print("[blue]Dry run completed - no changes made[/blue]")
-            
+
     except ValueError as e:
         print_error(str(e))
         raise typer.Exit(1)
@@ -230,7 +232,7 @@ def create_collection(
     name: str = typer.Argument(..., help="Collection name"),
     replication: int = typer.Option(3, "--replication", help="Replication factor"),
     shards: int = typer.Option(1, "--shards", help="Number of shards"),
-    vectorizer: str = typer.Option("text2vec-openai", "--vectorizer", help="Vectorizer to use")
+    vectorizer: str = typer.Option("text2vec-openai", "--vectorizer", help="Vectorizer to use"),
 ):
     """Create a new Weaviate collection with specified configuration."""
     try:
@@ -246,19 +248,11 @@ def create_collection(
         schema = {
             "class": name,
             "properties": [
-                {
-                    "name": "content",
-                    "dataType": ["text"],
-                    "description": "Main content field"
-                }
+                {"name": "content", "dataType": ["text"], "description": "Main content field"}
             ],
-            "replicationConfig": {
-                "factor": replication
-            },
-            "shardingConfig": {
-                "desiredCount": shards
-            },
-            "vectorizer": vectorizer
+            "replicationConfig": {"factor": replication},
+            "shardingConfig": {"desiredCount": shards},
+            "vectorizer": vectorizer,
         }
 
         # Create collection
@@ -281,7 +275,7 @@ def create_collection(
 def remove_collection(
     name: str = typer.Argument(..., help="Collection name"),
     force: bool = typer.Option(False, "--force", help="Skip confirmation and override protection"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted")
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted"),
 ):
     """Remove a Weaviate collection with safety checks."""
     try:
@@ -310,14 +304,16 @@ def remove_collection(
 
         # Interactive confirmation
         if not force:
-            console.print(f"[yellow]⚠ WARNING: This will permanently delete collection '{name}'[/yellow]")
+            console.print(
+                f"[yellow]⚠ WARNING: This will permanently delete collection '{name}'[/yellow]"
+            )
             console.print(f"  Objects: {collection_info['object_count']:,}")
             console.print(f"  Replicas: {collection_info['replicas']}")
             console.print(f"  Shards: {collection_info['shards']}")
             console.print(f"  Protected: {'Yes' if collection_info['protected'] else 'No'}")
 
             response = typer.prompt("\nType 'yes' to confirm deletion", default="no")
-            if response.lower() != 'yes':
+            if response.lower() != "yes":
                 console.print("[blue]Deletion cancelled[/blue]")
                 return
 

@@ -1,31 +1,28 @@
 """Collection management service for Weaviate collections."""
 
-import httpx
 import fnmatch
-from typing import List, Dict, Any
 from pathlib import Path
+from typing import Any
+
+import httpx
 
 from ..config import get_config
 
 
 class CollectionError(Exception):
     """Base exception for collection operations."""
-    pass
 
 
 class CollectionNotFoundError(CollectionError):
     """Collection does not exist."""
-    pass
 
 
 class CollectionProtectedError(CollectionError):
     """Collection is protected from modification."""
-    pass
 
 
 class CollectionExistsError(CollectionError):
     """Collection already exists."""
-    pass
 
 
 class WeaviateCollectionManager:
@@ -33,11 +30,11 @@ class WeaviateCollectionManager:
 
     def __init__(self, base_url: str = None):
         config = get_config()
-        self.base_url = base_url or config.services.weaviate_base_url.rstrip('/v1')
+        self.base_url = base_url or config.services.weaviate_base_url.rstrip("/v1")
         self.client = httpx.Client(timeout=30.0)
         self.config = config
 
-    def list_collections(self, filter_pattern: str = None) -> List[Dict[str, Any]]:
+    def list_collections(self, filter_pattern: str = None) -> list[dict[str, Any]]:
         """Get all collections from Weaviate with optional filtering."""
         response = self.client.get(f"{self.base_url}/v1/schema")
         response.raise_for_status()
@@ -56,7 +53,7 @@ class WeaviateCollectionManager:
 
         return enriched_classes
 
-    def get_collection(self, name: str) -> Dict[str, Any]:
+    def get_collection(self, name: str) -> dict[str, Any]:
         """Get specific collection details."""
         response = self.client.get(f"{self.base_url}/v1/schema/{name}")
         if response.status_code == 404:
@@ -68,8 +65,7 @@ class WeaviateCollectionManager:
         """Get object count for a collection."""
         try:
             response = self.client.get(
-                f"{self.base_url}/v1/objects",
-                params={"class": class_name, "limit": 0}
+                f"{self.base_url}/v1/objects", params={"class": class_name, "limit": 0}
             )
             response.raise_for_status()
             data = response.json()
@@ -84,10 +80,7 @@ class WeaviateCollectionManager:
 
     def create_collection(self, schema: dict) -> bool:
         """Create a new collection."""
-        response = self.client.post(
-            f"{self.base_url}/v1/schema",
-            json=schema
-        )
+        response = self.client.post(f"{self.base_url}/v1/schema", json=schema)
         response.raise_for_status()
         return response.status_code == 200
 
@@ -98,9 +91,12 @@ class WeaviateCollectionManager:
             config_path = Path(__file__).parent / "config" / "collection_config.yaml"
             if config_path.exists():
                 import yaml
-                with open(config_path, 'r') as f:
+
+                with open(config_path) as f:
                     config = yaml.safe_load(f)
-                protected_patterns = config.get("collection_management", {}).get("protected_patterns", [])
+                protected_patterns = config.get("collection_management", {}).get(
+                    "protected_patterns", []
+                )
             else:
                 # Fallback to hardcoded patterns
                 protected_patterns = [
@@ -121,7 +117,7 @@ class WeaviateCollectionManager:
                 return True
         return False
 
-    def get_collection_info(self, name: str) -> Dict[str, Any]:
+    def get_collection_info(self, name: str) -> dict[str, Any]:
         """Get comprehensive collection information."""
         collection = self.get_collection(name)
         object_count = self.get_object_count(name)
@@ -133,5 +129,5 @@ class WeaviateCollectionManager:
             "shards": collection.get("shardingConfig", {}).get("desiredCount", 1),
             "vectorizer": collection.get("vectorizer", "unknown"),
             "properties": len(collection.get("properties", [])),
-            "protected": self.is_protected(name)
+            "protected": self.is_protected(name),
         }

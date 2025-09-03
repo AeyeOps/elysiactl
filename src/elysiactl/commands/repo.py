@@ -1,14 +1,12 @@
 """Repository management commands for elysiactl."""
 
+from typing import Annotated
+
 import typer
-from typing import Optional
-from typing_extensions import Annotated
-from pathlib import Path
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
-from ..services.repository import repo_service, Repository
+
+from ..services.repository import repo_service
 
 console = Console()
 
@@ -18,11 +16,16 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+
 @app.command("add")
 def add_repo(
-    repo_pattern: Annotated[str, typer.Argument(help="Repository pattern (org/repo or org/project/repo)")],
+    repo_pattern: Annotated[
+        str, typer.Argument(help="Repository pattern (org/repo or org/project/repo)")
+    ],
     watch: Annotated[bool, typer.Option("--watch", "-w", help="Monitor for changes")] = False,
-    provider: Annotated[Optional[str], typer.Option("--provider", "-p", help="Specific git provider")] = None,
+    provider: Annotated[
+        str | None, typer.Option("--provider", "-p", help="Specific git provider")
+    ] = None,
 ):
     """Add repositories to monitoring."""
     console.print(f"🔍 Discovering repositories: {repo_pattern}")
@@ -48,7 +51,7 @@ def add_repo(
                     repo.repository,
                     repo.project,
                     "🔒" if repo.is_private else "🌐",
-                    repo.default_branch
+                    repo.default_branch,
                 )
 
             console.print(table)
@@ -67,12 +70,14 @@ def add_repo(
     except Exception as e:
         console.print(f"❌ Error discovering repositories: {e}")
 
+
 @app.command("status")
 def repo_status():
     """Show status of monitored repositories."""
     # TODO: Implement status display
     console.print("📊 Repository Status:")
     console.print("No repositories currently monitored")
+
 
 @app.command("list")
 def list_repos():
@@ -96,23 +101,18 @@ def list_repos():
     table.add_column("Last Sync", style="yellow")
 
     for repo in repo_service.repositories.values():
-        status_icon = {
-            "success": "✅",
-            "failed": "❌",
-            "pending": "⏳",
-            "unknown": "❓"
-        }.get(repo.sync_status, "❓")
+        status_icon = {"success": "✅", "failed": "❌", "pending": "⏳", "unknown": "❓"}.get(
+            repo.sync_status, "❓"
+        )
 
         last_sync = repo.last_sync.strftime("%Y-%m-%d %H:%M") if repo.last_sync else "Never"
 
         table.add_row(
-            repo.display_name,
-            repo.project,
-            f"{status_icon} {repo.sync_status}",
-            last_sync
+            repo.display_name, repo.project, f"{status_icon} {repo.sync_status}", last_sync
         )
 
     console.print(table)
+
 
 @app.command("remove")
 def remove_repo(
@@ -123,6 +123,7 @@ def remove_repo(
     # TODO: Implement removal logic
     console.print("✅ Repository removal completed")
 
+
 @app.command("sync")
 def sync_repos():
     """Manually sync all monitored repositories."""
@@ -130,9 +131,12 @@ def sync_repos():
     # TODO: Implement sync logic
     console.print("✅ Sync completed")
 
+
 @app.command("tui")
 def launch_tui(
-    theme: Annotated[str, typer.Option("--theme", "-t", help="UI theme (default, light, minimal, professional)")] = "default",
+    theme: Annotated[
+        str, typer.Option("--theme", "-t", help="UI theme (default, light, minimal, professional)")
+    ] = "default",
     dev: Annotated[bool, typer.Option("--dev", help="Enable Textual developer console")] = False,
 ):
     """Launch the interactive repository management TUI."""
@@ -145,18 +149,22 @@ def launch_tui(
     if dev:
         console.print("DEV MODE: Enabling Textual Console...")
         os.environ["TEXTUAL"] = "dev"
-    
+
     console.print(f"🚀 Launching Repository Management TUI with {theme} theme...")
 
     # Validate theme
     from ..tui.theme import theme_manager
+
     available_themes = theme_manager.get_available_themes()
     if theme not in available_themes:
-        console.print(f"❌ Invalid theme '{theme}'. Available themes: {', '.join(available_themes)}")
+        console.print(
+            f"❌ Invalid theme '{theme}'. Available themes: {', '.join(available_themes)}"
+        )
         raise typer.Exit(1)
 
     try:
         from ..tui.app import RepoManagerApp
+
         app = RepoManagerApp(theme_name=theme)
         console.print("✅ TUI starting...")
         app.run()

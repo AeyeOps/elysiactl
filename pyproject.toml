@@ -36,6 +36,12 @@ dev-dependencies = [
     "matplotlib>=3.6.0",
     "seaborn>=0.12.0",
     "textual-dev>=1.0.0",
+    "mypy>=1.17.1",
+    "types-toml>=0.10.8.20240310",
+    "types-psutil>=7.0.0.20250822",
+    "ruff>=0.12.11",
+    "memray>=1.13.0",
+    "pytest-textual-snapshot>=1.0.0",
 ]
 
 [project.urls]
@@ -74,3 +80,97 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError"
 ]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "scripts.*",
+]
+ignore_errors = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "YTT", # flake8-2020
+    "S",   # flake8-bandit
+    "BLE", # flake8-blind-except
+    "FBT", # flake8-boolean-trap
+    "A",   # flake8-builtins
+    "COM", # flake8-commas
+    "C90", # McCabe complexity
+    "DJ",  # flake8-django
+    "EM",  # flake8-errmsg
+    "EXE", # flake8-executable
+    "FA",  # flake8-future-annotations
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "G",   # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "T10", # flake8-debugger
+    "DJ",  # flake8-django
+    "N",   # pep8-naming
+    "AIR", # Airflow
+    "PERF", # Perflint
+    "FURB", # refurb
+    "LOG", # flake8-logging
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E501", # Line too long (handled by formatter)
+    "S101", # Use of assert detected
+    "FBT001", # Boolean positional arg in function definition
+    "FBT002", # Boolean default positional argument
+    "FBT003", # Boolean positional arg in function call
+    "A003", # Class attribute shadows a python builtin
+    "COM812", # Missing trailing comma
+    "ISC001", # Implicitly concatenated string literals
+    "Q000", # Single quotes found but double quotes preferred
+    "Q001", # Single quote multiline found but double quotes preferred
+    "Q002", # Single quote docstring found but double quotes preferred
+    "Q003", # Change outer quotes to avoid escaping inner quotes
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*" = ["B011", "S101"]
+"scripts/**/*" = ["INP001", "S101"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["elysiactl"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

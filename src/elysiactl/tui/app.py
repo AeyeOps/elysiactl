@@ -1,90 +1,25 @@
 """Main Textual application for repository management."""
 
+from typing import Any, ClassVar
+
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Button
-from textual.containers import Container, Vertical
-from textual import events
-from textual.theme import Theme
-from typing import Dict, Any
-from .widgets.repository_table import RepositoryTable
-from .widgets.command_prompt import CommandPrompt
+from textual.containers import Vertical
+from textual.widgets import Footer, Header, Static
+
+from ..services.repository import Repository
 from .command_processor import CommandProcessor
+from .theme_editor import ThemeEditor
+from .theme_manager import ThemeManager
+from .widgets.command_prompt import CommandPrompt
+from .widgets.virtual_scrollable import (
+    TableActionSelected,
+    TableRowSelected,
+    VirtualScrollableWidget,
+)
+
 
 class RepoManagerApp(App):
     """Main repository management TUI application."""
-
-    def __init__(self, theme_name: str = "default"):
-        # Register custom themes with Textual
-        self._register_themes()
-        super().__init__()
-
-    def _register_themes(self):
-        """Register custom themes with Textual's theme system."""
-        # Default theme - Professional dark with gold/coral accents
-        default_theme = Theme(
-            name="default",
-            primary="#00d4ff",      # Bright cyan
-            secondary="#8b5cf6",    # Purple accent
-            accent="#ff6b6b",       # Coral red
-            foreground="#ffffff",   # Pure white text
-            background="#1a1a2e",   # Dark blue-gray (lighter than before)
-            surface="#2a2a4e",      # Medium blue-gray surface
-            success="#00ff88",      # Bright green
-            warning="#ffa500",      # Orange
-            error="#ff4757",        # Red
-            panel="#475569",        # Dark slate
-        )
-
-        # Light theme - Professional light theme
-        light_theme = Theme(
-            name="light",
-            primary="#0366d6",      # Professional blue
-            secondary="#586069",    # Muted gray
-            accent="#28a745",       # Success green
-            foreground="#24292e",   # Dark gray text
-            background="#ffffff",   # Pure white background
-            surface="#f8f9fa",      # Light gray surface
-            success="#28a745",      # Consistent green
-            warning="#ffd33d",      # Warm yellow
-            error="#d73a49",        # Muted red
-            panel="#e1e4e8",        # Subtle borders
-        )
-
-        # Professional theme - Corporate colors
-        professional_theme = Theme(
-            name="professional",
-            primary="#3b82f6",      # Professional blue
-            secondary="#64748b",    # Muted blue-gray
-            accent="#10b981",       # Professional teal
-            foreground="#f1f5f9",   # Off-white text
-            background="#0f172a",   # Dark slate background
-            surface="#1e293b",      # Darker slate surface
-            success="#10b981",      # Consistent success
-            warning="#f59e0b",      # Professional warning
-            error="#ef4444",        # Clean error red
-            panel="#334155",        # Subtle border gray
-        )
-
-        # Minimal theme - Clean monochrome
-        minimal_theme = Theme(
-            name="minimal",
-            primary="#ffffff",      # Pure white
-            secondary="#666666",    # Medium gray
-            accent="#ffffff",       # White accent
-            foreground="#ffffff",   # White text
-            background="#000000",   # Pure black
-            surface="#111111",      # Very dark gray
-            success="#00ff00",      # Bright green
-            warning="#ffff00",      # Yellow
-            error="#ff0000",        # Red
-            panel="#333333",        # Dark gray
-        )
-
-        # Register all themes
-        self.register_theme(default_theme)
-        self.register_theme(light_theme)
-        self.register_theme(professional_theme)
-        self.register_theme(minimal_theme)
 
     @property
     def CSS(self):
@@ -112,15 +47,17 @@ class RepoManagerApp(App):
         }
 
         CommandPrompt {
-            height: 2;
-            padding: 0 1 0 2;
+            height: 4;
+            width: 1fr;
+            padding: 1;
             background: $surface;
             color: $foreground;
+            border: none;
         }
 
         #bottom_section {
             dock: bottom;
-            height: 7;
+            height: 8;
             width: 100%;
         }
 
@@ -128,47 +65,68 @@ class RepoManagerApp(App):
             height: 1fr;
         }
 
-        #repository_table {
+        #virtual_scroller {
             height: 1fr;
-            border: solid $panel;
             background: $surface;
             color: $foreground;
+            overflow-y: auto;
         }
 
-        #results_scroll {
-            height: 30%;
-            border: solid $accent;
+        /* Padding rows for bumper effects */
+        .padding-row {
+            height: 1;
             background: $surface;
-            color: $foreground;
-            scrollbar-size: 1 1;
+            color: $surface;
+            border: none;
         }
 
-        /* Status-specific styling */
-        .status-success {
-            color: $success;
+        #above_scroll_padding {
+            /* 4th row from top - padding above scroll view */
         }
 
-        .status-failed {
-            color: $error;
+        #below_scroll_padding {
+            /* 5th row from bottom - padding below scroll view */
         }
 
-        .status-syncing {
+        /* Sleek vertical line prefixes for messages */
+        .user-prefix {
+            color: $accent;
+            background: transparent;
+        }
+
+        .system-prefix {
             color: $warning;
+            background: transparent;
+        }
+
+        .ai-prefix {
+            color: $success;
+            background: transparent;
+        }
+
+        .message-timestamp {
+            color: $text-muted;
+            background: transparent;
         }
         """
 
     def compose(self) -> ComposeResult:
         """Compose the main application layout."""
+        # Top padding row (invisible, used for bumper effect)
+        yield Static("", id="top_padding", classes="padding-row")
+
         yield Header()
 
-        # Main content area with two scrollable panes
-        with Vertical(id="main-container"):
-            self.repo_table = RepositoryTable(id="repository_table")
-            yield self.repo_table
+        # Padding row above scroll view (4th row from top)
+        yield Static("", id="above_scroll_padding", classes="padding-row")
 
-            from textual.containers import ScrollableContainer
-            self.results_scroll = ScrollableContainer(id="results_scroll")
-            yield self.results_scroll
+        # Main content area with virtual scrolling for mixed content types
+        with Vertical(id="main-container"):
+            self.virtual_scroller = VirtualScrollableWidget(id="virtual_scroller")
+            yield self.virtual_scroller
+
+        # Padding row below scroll view (5th row from bottom)
+        yield Static("", id="below_scroll_padding", classes="padding-row")
 
         # Bottom section for input and footer
         with Vertical(id="bottom_section"):
@@ -176,7 +134,7 @@ class RepoManagerApp(App):
             yield self.command_prompt
             yield Footer()
 
-    BINDINGS = [
+    BINDINGS: ClassVar = [
         ("q", "quit", "Quit"),
         ("Q", "quit", "Quit"),
         ("ctrl+c", "quit", "Quit"),
@@ -186,6 +144,7 @@ class RepoManagerApp(App):
         ("s", "show_status", "Status"),
         ("f", "show_failed", "Failed"),
         ("ctrl+g", "show_more", "More"),
+        ("ctrl+e", "open_theme_editor", "Theme Editor"),
     ]
 
     def __init__(self, theme_name: str = "default"):
@@ -193,47 +152,53 @@ class RepoManagerApp(App):
         # Register custom themes with Textual after super().__init__()
         self._register_themes()
         self.command_processor = CommandProcessor()
-        self.repo_table = None
-        self._available_themes = ["default", "light", "professional", "minimal"]
-        self.current_theme_index = self._available_themes.index(theme_name) if theme_name in self._available_themes else 0
+        self.virtual_scroller = None
+        # Available themes will be set in _register_themes (don't overwrite!)
+        # self._available_themes = []  # <-- This was overwriting the registered themes!
+        self.current_theme_index = 0
+
+        # Sidebar configuration
+        self.sidebar_visible = True
+        self.sidebar_min_width = 120  # Minimum width to show sidebar
+        self.sidebar_min_height = 30  # Minimum height to show sidebar
 
         # Set initial theme
         self.theme = theme_name
 
+    def _register_themes(self):
+        """Register themes using the ThemeManager for external configuration support."""
+        theme_manager = ThemeManager()
+        available_themes = theme_manager.get_available_themes()
+
+        # Register all available themes
+        for theme in available_themes.values():
+            self.register_theme(theme)
+
+        # Update available themes list
+        self._available_themes = list(available_themes.keys())
+
     def on_mount(self) -> None:
         """Initialize the application when mounted."""
         # Ensure theme is applied properly
-        if hasattr(self, 'theme') and self.theme:
+        if hasattr(self, "theme") and self.theme:
             pass  # Theme should already be set
         else:
             self.theme = "default"  # Fallback
 
+        # Start the startup animation instead of showing welcome immediately
+        if self.virtual_scroller:
+            self.virtual_scroller.start_startup_animation()
+
         # Focus the command prompt after a short delay to ensure it's ready
         self.set_timer(0.1, lambda: self.command_prompt.focus() if self.command_prompt else None)
-
-    # def update_footer(self) -> None:
-    #     """Update footer with current status information."""
-    #     repo_count = self.repo_table.get_repository_count() if self.repo_table else 0
-    #     status_counts = self.repo_table.get_status_counts() if self.repo_table else {}
-
-    #     footer_content = (
-    #         f"📊 {repo_count} repos | "
-    #         f"✅ {status_counts.get('success', 0)} | "
-    #         f"❌ {status_counts.get('failed', 0)} | "
-    #         f"🔄 {status_counts.get('syncing', 0)} | "
-    #         f"[?] Help | [Q] Quit | [T] Theme"
-    #     )
-
-    #     # Update footer using the proper Textual API
-    #     self.set_footer(footer_content)
 
     async def on_command_prompt_command_submitted(self, event) -> None:
         """Handle command submission from the prompt."""
         command = event.command
 
-        # Display the command in the repository table for testing scrolling
-        if self.repo_table:
-            self.repo_table.add_command_output(command)
+        # Display the command in the virtual scroller
+        if self.virtual_scroller:
+            self.virtual_scroller.add_text_message(command, "user")
 
         # Process the command using our command processor
         result = self.command_processor.process_command(command)
@@ -247,106 +212,210 @@ class RepoManagerApp(App):
         elif result["type"] == "error":
             self.show_error(result)
 
-    async def handle_action(self, result: Dict[str, Any]) -> None:
+    async def handle_action(self, result: dict[str, Any]) -> None:
         """Handle action-type commands."""
         action = result.get("action")
 
         if action == "show_repositories":
-            # Repositories are already displayed, just refresh if needed
-            if self.repo_table:
-                self.repo_table.load_mock_data()
-                self.repo_table.add_command_output("list repos", "✅ Refreshed repository list")
+            # Load and display repositories
+            if self.virtual_scroller:
+                mock_repos = [
+                    Repository(
+                        organization="pdidev",
+                        project="Blue Cow",
+                        repository="api-gateway",
+                        clone_url="",
+                        ssh_url="",
+                        default_branch="main",
+                        is_private=True,
+                        description="API Gateway",
+                        last_sync=None,
+                        sync_status="success",
+                    ),
+                    Repository(
+                        organization="pdidev",
+                        project="Blue Cow",
+                        repository="user-service",
+                        clone_url="",
+                        ssh_url="",
+                        default_branch="develop",
+                        is_private=True,
+                        description="User service",
+                        last_sync=None,
+                        sync_status="success",
+                    ),
+                    Repository(
+                        organization="pdidev",
+                        project="Blue Cow",
+                        repository="auth-service",
+                        clone_url="",
+                        ssh_url="",
+                        default_branch="develop",
+                        is_private=True,
+                        description="Auth service",
+                        last_sync=None,
+                        sync_status="failed",
+                    ),
+                ]
+                self.virtual_scroller.add_repository_table(mock_repos)
+                self.virtual_scroller.add_ai_response(
+                    "Here are your repositories! You can click on any row to interact with them."
+                )
 
         elif action == "show_status":
-            status_counts = self.repo_table.get_status_counts() if self.repo_table else {}
-            status_msg = f"📊 Status: {status_counts.get('success', 0)} ✓, {status_counts.get('failed', 0)} ✗, {status_counts.get('syncing', 0)} ⟳"
-            if self.repo_table:
-                self.repo_table.add_command_output("status", status_msg)
+            # Show status summary
+            if self.virtual_scroller:
+                self.virtual_scroller.add_ai_response(
+                    "📊 Repository Status Summary\n✅ Success: 2 repositories\n❌ Failed: 1 repository\n🔄 Syncing: 0 repositories\n\nAll systems operational!"
+                )
 
         elif action == "filter_repositories":
             filter_criteria = result.get("filter", {})
             if filter_criteria.get("status") == "failed":
-                failed_count = self.repo_table.get_status_counts().get("failed", 0) if self.repo_table else 0
-                if self.repo_table:
-                    self.repo_table.add_command_output("show failed", f"🔍 Found {failed_count} failed repositories")
+                if self.virtual_scroller:
+                    failed_repos = [
+                        Repository(
+                            "pdidev",
+                            "Blue Cow",
+                            "auth-service",
+                            "",
+                            "",
+                            "develop",
+                            True,
+                            "Auth service",
+                            "failed",
+                        )
+                    ]
+                    self.virtual_scroller.add_repository_table(failed_repos)
+                    self.virtual_scroller.add_ai_response(
+                        "🔍 Found 1 failed repository. You can click on it to troubleshoot or retry."
+                    )
 
-    def show_help_content(self, result: Dict[str, Any]) -> None:
+    def show_help_content(self, result: dict[str, Any]) -> None:
         """Show help content."""
-        help_content = result.get("content", "Help content not available")
-        if self.repo_table:
-            self.repo_table.add_command_output("help", "💡 Help displayed (see toast for details)")
-        self.notify("💡 Help", title="Available Commands")
+        if self.virtual_scroller:
+            self.virtual_scroller.add_ai_response(
+                "💡 Help System Available\n\nCommands:\n- list - Show all repositories\n- status - Show repository status\n- show failed - Show only failed repos\n- help - Show this help\n\nKey Bindings:\n- ? - Show help\n- T - Cycle themes\n- Q - Quit application"
+            )
+        self.notify("💡 Help", title="Available Commands", timeout=2.0)
         # In a full implementation, we'd show this in a modal or dedicated area
 
-    def show_unknown_command(self, result: Dict[str, Any]) -> None:
+    def show_unknown_command(self, result: dict[str, Any]) -> None:
         """Handle unknown commands."""
         message = result.get("message", "Unknown command")
         suggestion = result.get("suggestion", "")
-        if self.repo_table:
-            self.repo_table.add_command_output(message, f"💡 {suggestion}")
-        self.notify(f"❓ {message}\n💡 {suggestion}", title="Command Not Recognized", severity="warning")
+        if self.virtual_scroller:
+            self.virtual_scroller.add_ai_response(
+                f"❓ I didn't understand '{message}'\n💡 Try: {suggestion}"
+            )
+        self.notify(
+            f"❓ {message}\n💡 {suggestion}",
+            title="Command Not Recognized",
+            severity="warning",
+            timeout=2.0,
+        )
 
-    def show_error(self, result: Dict[str, Any]) -> None:
+    def show_error(self, result: dict[str, Any]) -> None:
         """Handle command errors."""
         message = result.get("message", "An error occurred")
-        if self.repo_table:
-            self.repo_table.add_command_output("error", f"❌ {message}")
-        self.notify(f"❌ {message}", title="Error", severity="error")
+        if self.virtual_scroller:
+            self.virtual_scroller.add_ai_response(
+                f"❌ Error: {message}\n\nPlease check your command and try again."
+            )
+        self.notify(f"❌ {message}", title="Error", severity="error", timeout=2.0)
+
+    def on_table_row_selected(self, event: TableRowSelected) -> None:
+        """Handle table row selection."""
+        row_data = event.row_data
+        repo_name = row_data.get("repository", "Unknown")
+        status = row_data.get("sync_status", "unknown")
+        self.notify(
+            f"📁 Selected: {repo_name} ({status})", title="Repository Selected", timeout=2.0
+        )
+
+        # Add AI response about the selected repository
+        if self.virtual_scroller:
+            self.virtual_scroller.add_ai_response(
+                f"You selected '{repo_name}' with status '{status}'. What would you like to do with this repository?\n\nOptions:\n- View details\n- Retry sync\n- Open in browser\n- View logs"
+            )
+
+    def on_table_action_selected(self, event: TableActionSelected) -> None:
+        """Handle table action selection."""
+        actions = event.actions
+        self.notify(
+            f"🎯 Available actions: {', '.join(actions)}", title="Actions Available", timeout=3.0
+        )
+
+        # Add AI response with action options
+        if self.virtual_scroller:
+            action_list = "\n".join(f"- {action}" for action in actions)
+            self.virtual_scroller.add_ai_response(
+                f"Available actions:\n{action_list}\n\nClick an action or type a command to proceed."
+            )
 
     def action_show_help(self) -> None:
         """Show help when ? is pressed."""
         help_text = """
 [b]Available Commands:[/b]
-• [cyan]list[/cyan] - Show all repositories
-• [cyan]status[/cyan] - Show repository status summary
-• [cyan]show failed[/cyan] - Show only failed repositories
-• [cyan]sync all[/cyan] - Sync all repositories
-• [cyan]add <url>[/cyan] - Add a new repository
-• [cyan]help[/cyan] - Show this help
+- [cyan]list[/cyan] - Show all repositories
+- [cyan]status[/cyan] - Show repository status summary
+- [cyan]show failed[/cyan] - Show only failed repositories
+- [cyan]sync all[/cyan] - Sync all repositories
+- [cyan]add <url>[/cyan] - Add a new repository
+- [cyan]help[/cyan] - Show this help
 
 [b]Key Bindings:[/b]
-• [yellow]?[/yellow] - Show help
-• [yellow]T[/yellow] - Cycle themes
-• [yellow]Q[/yellow] - Quit application
-• [yellow]↑↓[/yellow] - Navigate command history
+- [yellow]?[/yellow] - Show help
+- [yellow]T[/yellow] - Cycle themes
+- [yellow]Q[/yellow] - Quit application
+- [yellow]up/down arrows[/yellow] - Navigate command history
         """.strip()
-        self.notify(help_text, title="Repository Manager Help")
+        # Add help content to the virtual scroller instead of using a notification
+        if self.virtual_scroller:
+            self.virtual_scroller.add_ai_response(f"🆘 Help System\n\n{help_text}")
+            self.virtual_scroller.add_text_message("? (help)", "system")
 
     def action_cycle_theme(self) -> None:
-        """Cycle through available themes using Textual's built-in system."""
+        """Cycle through available themes."""
+        if not self._available_themes:
+            self.notify("No themes available", title="Theme Error", severity="error")
+            return
+
         self.current_theme_index = (self.current_theme_index + 1) % len(self._available_themes)
         new_theme_name = self._available_themes[self.current_theme_index]
 
         # Use Textual's built-in theme switching
         self.theme = new_theme_name
-        self.notify(f"🎨 Switched to {new_theme_name} theme")
+        self.notify(f"Switched to {new_theme_name} theme", timeout=2.0)
 
-    def action_list_repos(self) -> None:
-        """List all repositories."""
-        if self.repo_table:
-            self.repo_table.load_mock_data()
-            self.repo_table.add_command_output("list (shortcut)", "✅ Repository list refreshed")
+        # Also add to virtual scroller
+        if self.virtual_scroller:
+            self.virtual_scroller.add_text_message(f"Theme changed to {new_theme_name}", "system")
 
-    def action_show_status(self) -> None:
-        """Show repository status summary."""
-        status_counts = self.repo_table.get_status_counts() if self.repo_table else {}
-        status_msg = f"📊 Status: {status_counts.get('success', 0)} ✓, {status_counts.get('failed', 0)} ✗, {status_counts.get('syncing', 0)} ⟳"
-        if self.repo_table:
-            self.repo_table.add_command_output("status (shortcut)", status_msg)
+    def action_open_theme_editor(self) -> None:
+        """Open the interactive theme editor."""
+        from textual.screen import ModalScreen
 
-    def action_show_failed(self) -> None:
-        """Show only failed repositories."""
-        failed_count = self.repo_table.get_status_counts().get("failed", 0) if self.repo_table else 0
-        if self.repo_table:
-            self.repo_table.add_command_output("show failed (shortcut)", f"🔍 Found {failed_count} failed repositories")
+        class ThemeEditorScreen(ModalScreen):
+            """Modal screen for the theme editor."""
 
-    def action_show_more(self) -> None:
-        """Show extended commands (future expansion)."""
-        if self.repo_table:
-            self.repo_table.add_command_output("more (shortcut)", "🔮 Extended commands panel - Coming in Phase 3!")
+            def compose(self) -> ComposeResult:
+                yield ThemeEditor()
+
+            def on_theme_editor_edit_color_requested(self, event) -> None:
+                """Handle color edit requests from the editor."""
+                # Forward to main app if needed
+
+            def on_color_palette_color_chosen(self, event) -> None:
+                """Handle color selection from palette."""
+                # Forward to main app if needed
+
+        self.push_screen(ThemeEditorScreen())
+
 
 if __name__ == "__main__":
     import sys
+
     theme_name = sys.argv[1] if len(sys.argv) > 1 else "default"
     app = RepoManagerApp(theme_name=theme_name)
     app.run()

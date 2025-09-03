@@ -1,15 +1,25 @@
 """Performance optimization for high-throughput sync operations."""
 
 import asyncio
-import aiohttp
 import time
+from collections.abc import AsyncIterator, Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any, Optional, AsyncIterator, Callable
 from dataclasses import dataclass
+from typing import Any
+
+import aiohttp
 from rich.console import Console
-from rich.progress import Progress, TaskID, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TextColumn,
+    TimeRemainingColumn,
+)
 
 console = Console()
+
 
 @dataclass
 class PerformanceMetrics:
@@ -24,7 +34,7 @@ class PerformanceMetrics:
 
     # Timing
     start_time: float = 0.0
-    end_time: Optional[float] = None
+    end_time: float | None = None
 
     # Throughput
     files_per_second: float = 0.0
@@ -54,34 +64,37 @@ class PerformanceMetrics:
             self.files_per_second = self.processed_files / duration
             self.bytes_per_second = self.total_bytes / duration
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get performance summary."""
         duration = (self.end_time or time.time()) - self.start_time
 
         return {
-            'duration_seconds': duration,
-            'files_per_second': self.files_per_second,
-            'bytes_per_second': self.bytes_per_second,
-            'throughput_mbps': self.bytes_per_second / (1024 * 1024),
-            'total_files': self.total_files,
-            'success_rate': self.successful_files / max(self.processed_files, 1) * 100,
-            'peak_memory_mb': self.peak_memory_mb,
-            'peak_connections': self.peak_connections,
-            'avg_batch_size': self.avg_batch_size,
-            'avg_batch_time_ms': self.avg_batch_time_ms
+            "duration_seconds": duration,
+            "files_per_second": self.files_per_second,
+            "bytes_per_second": self.bytes_per_second,
+            "throughput_mbps": self.bytes_per_second / (1024 * 1024),
+            "total_files": self.total_files,
+            "success_rate": self.successful_files / max(self.processed_files, 1) * 100,
+            "peak_memory_mb": self.peak_memory_mb,
+            "peak_connections": self.peak_connections,
+            "avg_batch_size": self.avg_batch_size,
+            "avg_batch_time_ms": self.avg_batch_time_ms,
         }
+
 
 class ConnectionPool:
     """Async HTTP connection pool with connection limits."""
 
-    def __init__(self,
-                 max_connections: int = 20,
-                 max_connections_per_host: int = 10,
-                 timeout: aiohttp.ClientTimeout = None):
+    def __init__(
+        self,
+        max_connections: int = 20,
+        max_connections_per_host: int = 10,
+        timeout: aiohttp.ClientTimeout = None,
+    ):
         self.max_connections = max_connections
         self.max_connections_per_host = max_connections_per_host
         self.timeout = timeout or aiohttp.ClientTimeout(total=30, connect=10)
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
 
     async def get_session(self) -> aiohttp.ClientSession:
@@ -95,16 +108,16 @@ class ConnectionPool:
                         ttl_dns_cache=300,  # 5 minutes
                         use_dns_cache=True,
                         keepalive_timeout=60,
-                        enable_cleanup_closed=True
+                        enable_cleanup_closed=True,
                     )
 
                     self._session = aiohttp.ClientSession(
                         connector=connector,
                         timeout=self.timeout,
                         headers={
-                            'User-Agent': 'elysiactl/performance-optimized',
-                            'Accept-Encoding': 'gzip, deflate'
-                        }
+                            "User-Agent": "elysiactl/performance-optimized",
+                            "Accept-Encoding": "gzip, deflate",
+                        },
                     )
 
         return self._session
@@ -114,23 +127,23 @@ class ConnectionPool:
         if self._session and not self._session.closed:
             await self._session.close()
 
+
 class BatchProcessor:
     """Efficient batch processing with parallel execution."""
 
-    def __init__(self,
-                 batch_size: int = 100,
-                 max_workers: int = 4,
-                 max_memory_mb: int = 512):
+    def __init__(self, batch_size: int = 100, max_workers: int = 4, max_memory_mb: int = 512):
         self.batch_size = batch_size
         self.max_workers = max_workers
         self.max_memory_mb = max_memory_mb
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    async def process_batches(self,
-                            items: AsyncIterator[Any],
-                            processor: Callable,
-                            progress: Optional[Progress] = None,
-                            task: Optional[TaskID] = None) -> AsyncIterator[List[Any]]:
+    async def process_batches(
+        self,
+        items: AsyncIterator[Any],
+        processor: Callable,
+        progress: Progress | None = None,
+        task: TaskID | None = None,
+    ) -> AsyncIterator[list[Any]]:
         """Process items in parallel batches."""
         batch = []
 
@@ -156,11 +169,11 @@ class BatchProcessor:
 
             yield results
 
-    async def _process_batch_parallel(self, batch: List[Any], processor: Callable) -> List[Any]:
+    async def _process_batch_parallel(self, batch: list[Any], processor: Callable) -> list[Any]:
         """Process a batch using parallel workers."""
         # Split batch into chunks for parallel processing
         chunk_size = max(1, len(batch) // self.max_workers)
-        chunks = [batch[i:i + chunk_size] for i in range(0, len(batch), chunk_size)]
+        chunks = [batch[i : i + chunk_size] for i in range(0, len(batch), chunk_size)]
 
         # Process chunks in parallel
         tasks = []
@@ -181,7 +194,7 @@ class BatchProcessor:
 
         return results
 
-    async def _process_chunk(self, chunk: List[Any], processor: Callable) -> List[Any]:
+    async def _process_chunk(self, chunk: list[Any], processor: Callable) -> list[Any]:
         """Process a chunk of items."""
         results = []
         for item in chunk:
@@ -198,27 +211,26 @@ class BatchProcessor:
         """Shutdown executor."""
         self.executor.shutdown(wait=True)
 
+
 class StreamingProcessor:
     """Streaming processor for large-scale operations."""
 
-    def __init__(self,
-                 buffer_size: int = 1000,
-                 flush_interval: float = 5.0):
+    def __init__(self, buffer_size: int = 1000, flush_interval: float = 5.0):
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
-        self.buffer: List[Any] = []
+        self.buffer: list[Any] = []
         self.buffer_lock = asyncio.Lock()
         self.last_flush_time = time.time()
 
-    async def add_item(self, item: Any, processor: Callable) -> Optional[List[Any]]:
+    async def add_item(self, item: Any, processor: Callable) -> list[Any] | None:
         """Add item to buffer, flush if needed."""
         async with self.buffer_lock:
             self.buffer.append(item)
 
             # Check if buffer should be flushed
             should_flush = (
-                len(self.buffer) >= self.buffer_size or
-                time.time() - self.last_flush_time >= self.flush_interval
+                len(self.buffer) >= self.buffer_size
+                or time.time() - self.last_flush_time >= self.flush_interval
             )
 
             if should_flush:
@@ -226,12 +238,12 @@ class StreamingProcessor:
 
         return None
 
-    async def flush(self, processor: Callable) -> List[Any]:
+    async def flush(self, processor: Callable) -> list[Any]:
         """Force flush buffer."""
         async with self.buffer_lock:
             return await self._flush_buffer(processor)
 
-    async def _flush_buffer(self, processor: Callable) -> List[Any]:
+    async def _flush_buffer(self, processor: Callable) -> list[Any]:
         """Internal buffer flush."""
         if not self.buffer:
             return []
@@ -252,39 +264,38 @@ class StreamingProcessor:
 
         return results
 
+
 class PerformanceOptimizer:
     """Main performance optimization coordinator."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
 
         # Performance settings
-        self.max_workers = self.config.get('max_workers', 8)
-        self.batch_size = self.config.get('batch_size', 100)
-        self.max_connections = self.config.get('max_connections', 20)
-        self.memory_limit_mb = self.config.get('memory_limit_mb', 512)
+        self.max_workers = self.config.get("max_workers", 8)
+        self.batch_size = self.config.get("batch_size", 100)
+        self.max_connections = self.config.get("max_connections", 20)
+        self.memory_limit_mb = self.config.get("memory_limit_mb", 512)
 
         # Components
         self.connection_pool = ConnectionPool(
-            max_connections=self.max_connections,
-            max_connections_per_host=self.max_connections // 2
+            max_connections=self.max_connections, max_connections_per_host=self.max_connections // 2
         )
         self.batch_processor = BatchProcessor(
             batch_size=self.batch_size,
             max_workers=self.max_workers,
-            max_memory_mb=self.memory_limit_mb
+            max_memory_mb=self.memory_limit_mb,
         )
         self.streaming_processor = StreamingProcessor(
-            buffer_size=self.batch_size,
-            flush_interval=2.0
+            buffer_size=self.batch_size, flush_interval=2.0
         )
 
         # Metrics
         self.metrics = PerformanceMetrics()
 
-    async def optimize_sync_operation(self,
-                                    changes: AsyncIterator[Dict[str, Any]],
-                                    processor: Callable) -> AsyncIterator[Dict[str, Any]]:
+    async def optimize_sync_operation(
+        self, changes: AsyncIterator[dict[str, Any]], processor: Callable
+    ) -> AsyncIterator[dict[str, Any]]:
         """Optimize sync operation with parallel processing."""
         self.metrics.start()
 
@@ -297,9 +308,8 @@ class PerformanceOptimizer:
             TextColumn("[blue]{task.completed}/{task.total} files"),
             TextColumn("•"),
             TimeRemainingColumn(),
-            console=console
+            console=console,
         ) as progress:
-
             task = progress.add_task("Processing files...", total=None)
 
             # Process in optimized batches
@@ -313,11 +323,17 @@ class PerformanceOptimizer:
                 # Update metrics
                 self.metrics.total_batches += 1
                 self.metrics.processed_files += batch_size
-                self.metrics.successful_files += sum(1 for r in batch_results if r and r.get('success', False))
-                self.metrics.failed_files += sum(1 for r in batch_results if r and not r.get('success', True))
+                self.metrics.successful_files += sum(
+                    1 for r in batch_results if r and r.get("success", False)
+                )
+                self.metrics.failed_files += sum(
+                    1 for r in batch_results if r and not r.get("success", True)
+                )
 
                 # Calculate running averages
-                self.metrics.avg_batch_size = self.metrics.processed_files / self.metrics.total_batches
+                self.metrics.avg_batch_size = (
+                    self.metrics.processed_files / self.metrics.total_batches
+                )
 
                 # Yield results
                 for result in batch_results:
@@ -334,6 +350,7 @@ class PerformanceOptimizer:
         """Check and manage memory usage."""
         try:
             import psutil
+
             process = psutil.Process()
             memory_mb = process.memory_info().rss / (1024 * 1024)
 
@@ -342,6 +359,7 @@ class PerformanceOptimizer:
             # If memory usage is high, trigger garbage collection
             if memory_mb > self.memory_limit_mb * 0.8:
                 import gc
+
                 gc.collect()
 
         except ImportError:
@@ -352,19 +370,21 @@ class PerformanceOptimizer:
         session = await self.connection_pool.get_session()
         return OptimizedWeaviateClient(base_url, session, self.metrics)
 
-    def get_performance_summary(self) -> Dict[str, Any]:
+    def get_performance_summary(self) -> dict[str, Any]:
         """Get comprehensive performance summary."""
         summary = self.metrics.get_summary()
 
         # Add optimization details
-        summary.update({
-            'optimization_config': {
-                'max_workers': self.max_workers,
-                'batch_size': self.batch_size,
-                'max_connections': self.max_connections,
-                'memory_limit_mb': self.memory_limit_mb
+        summary.update(
+            {
+                "optimization_config": {
+                    "max_workers": self.max_workers,
+                    "batch_size": self.batch_size,
+                    "max_connections": self.max_connections,
+                    "memory_limit_mb": self.memory_limit_mb,
+                }
             }
-        })
+        )
 
         return summary
 
@@ -373,19 +393,20 @@ class PerformanceOptimizer:
         await self.connection_pool.close()
         self.batch_processor.shutdown()
 
+
 class OptimizedWeaviateClient:
     """High-performance Weaviate client with batching and connection pooling."""
 
     def __init__(self, base_url: str, session: aiohttp.ClientSession, metrics: PerformanceMetrics):
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.session = session
         self.metrics = metrics
-        self.batch_buffer: List[Dict[str, Any]] = []
+        self.batch_buffer: list[dict[str, Any]] = []
         self.batch_lock = asyncio.Lock()
 
-    async def batch_index_files(self,
-                               operations: List[Dict[str, Any]],
-                               collection: str) -> List[bool]:
+    async def batch_index_files(
+        self, operations: list[dict[str, Any]], collection: str
+    ) -> list[bool]:
         """Batch index multiple files for optimal performance."""
         if not operations:
             return []
@@ -395,16 +416,18 @@ class OptimizedWeaviateClient:
         # Prepare batch request
         batch_objects = []
         for op in operations:
-            if op.get('operation') == 'delete':
+            if op.get("operation") == "delete":
                 # Handle deletion
                 continue
 
-            batch_objects.append({
-                "class": collection,
-                "id": op.get('id'),
-                "properties": op.get('properties', {}),
-                "vector": op.get('vector')
-            })
+            batch_objects.append(
+                {
+                    "class": collection,
+                    "id": op.get("id"),
+                    "properties": op.get("properties", {}),
+                    "vector": op.get("vector"),
+                }
+            )
 
         try:
             # Send batch request
@@ -412,7 +435,9 @@ class OptimizedWeaviateClient:
 
             async with self.session.put(url, json={"objects": batch_objects}) as response:
                 self.metrics.active_connections += 1
-                self.metrics.peak_connections = max(self.metrics.peak_connections, self.metrics.active_connections)
+                self.metrics.peak_connections = max(
+                    self.metrics.peak_connections, self.metrics.active_connections
+                )
 
                 if response.status == 200:
                     result = await response.json()
@@ -430,16 +455,22 @@ class OptimizedWeaviateClient:
         # Update metrics
         batch_time = (time.time() - batch_start) * 1000  # ms
         self.metrics.avg_batch_time_ms = (
-            (self.metrics.avg_batch_time_ms * (self.metrics.total_batches - 1) + batch_time)
-            / self.metrics.total_batches
-        ) if self.metrics.total_batches > 0 else batch_time
+            (
+                (self.metrics.avg_batch_time_ms * (self.metrics.total_batches - 1) + batch_time)
+                / self.metrics.total_batches
+            )
+            if self.metrics.total_batches > 0
+            else batch_time
+        )
 
         return results
 
-# Global performance optimizer instance
-_performance_optimizer: Optional[PerformanceOptimizer] = None
 
-def get_performance_optimizer(config: Optional[Dict[str, Any]] = None) -> PerformanceOptimizer:
+# Global performance optimizer instance
+_performance_optimizer: PerformanceOptimizer | None = None
+
+
+def get_performance_optimizer(config: dict[str, Any] | None = None) -> PerformanceOptimizer:
     """Get global performance optimizer instance."""
     global _performance_optimizer
     if _performance_optimizer is None:

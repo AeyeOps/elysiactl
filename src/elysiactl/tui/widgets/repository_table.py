@@ -1,9 +1,12 @@
 """Repository table widget for displaying repository information."""
 
-from textual.widgets import DataTable
-from rich.text import Text
-from ...services.repository import Repository
 from datetime import datetime
+
+from rich.text import Text
+from textual.widgets import DataTable
+
+from ...services.repository import Repository
+
 
 class RepositoryTable(DataTable):
     """Widget for displaying repository information in a table format."""
@@ -19,7 +22,7 @@ class RepositoryTable(DataTable):
             Text("Repository", overflow="ellipsis"),
             Text("Status", justify="center"),
             Text("Last Sync", overflow="ellipsis"),
-            Text("Project", overflow="ellipsis")
+            Text("Project", overflow="ellipsis"),
         )
 
         # Load initial data
@@ -37,7 +40,7 @@ class RepositoryTable(DataTable):
                 default_branch="main",
                 is_private=True,
                 description="API Gateway service",
-                sync_status="success"
+                sync_status="success",
             ),
             Repository(
                 organization="pdidev",
@@ -48,7 +51,7 @@ class RepositoryTable(DataTable):
                 default_branch="develop",
                 is_private=True,
                 description="User management service",
-                sync_status="success"
+                sync_status="success",
             ),
             Repository(
                 organization="pdidev",
@@ -59,7 +62,7 @@ class RepositoryTable(DataTable):
                 default_branch="develop",
                 is_private=True,
                 description="Authentication service",
-                sync_status="failed"
+                sync_status="failed",
             ),
             Repository(
                 organization="pdidev",
@@ -70,7 +73,7 @@ class RepositoryTable(DataTable):
                 default_branch="main",
                 is_private=True,
                 description="Envoy proxy configuration",
-                sync_status="success"
+                sync_status="success",
             ),
             Repository(
                 organization="pdidev",
@@ -81,8 +84,8 @@ class RepositoryTable(DataTable):
                 default_branch="develop",
                 is_private=True,
                 description="Logistics cloud automation",
-                sync_status="syncing"
-            )
+                sync_status="syncing",
+            ),
         ]
 
         self.repositories = mock_repos
@@ -94,12 +97,9 @@ class RepositoryTable(DataTable):
 
         for repo in repositories:
             # Format status with emoji
-            status_emoji = {
-                "success": "✅",
-                "failed": "❌",
-                "syncing": "🔄",
-                "unknown": "❓"
-            }.get(repo.sync_status, "❓")
+            status_emoji = {"success": "✅", "failed": "❌", "syncing": "🔄", "unknown": "❓"}.get(
+                repo.sync_status, "❓"
+            )
 
             # Format last sync
             last_sync = "Never"
@@ -107,16 +107,13 @@ class RepositoryTable(DataTable):
                 last_sync = repo.last_sync.strftime("%Y-%m-%d %H:%M")
 
             # Truncate long names to fit terminal width
-            repo_name = repo.repository[:20] + "..." if len(repo.repository) > 20 else repo.repository
+            repo_name = (
+                repo.repository[:20] + "..." if len(repo.repository) > 20 else repo.repository
+            )
             project_name = repo.project[:15] + "..." if len(repo.project) > 15 else repo.project
 
             # Add row to table
-            self.add_row(
-                repo_name,
-                f"{status_emoji} {repo.sync_status}",
-                last_sync,
-                project_name
-            )
+            self.add_row(repo_name, f"{status_emoji} {repo.sync_status}", last_sync, project_name)
 
     def add_command_output(self, command: str, output: str = None):
         """Add command output to the table with infinite scroll behavior."""
@@ -128,7 +125,7 @@ class RepositoryTable(DataTable):
             f"💬 {command}",
             "✅ executed",
             f"{datetime.now().strftime('%H:%M:%S')}",
-            "Command"
+            "Command",
         ]
 
         # Add to the END of the table (receipt printer style - newest at bottom)
@@ -140,7 +137,6 @@ class RepositoryTable(DataTable):
 
         # Optional: If we want to prevent memory issues with truly infinite content,
         # we could implement a "virtual scrolling" approach later
-        pass
 
     def get_repository_count(self) -> int:
         """Get the total number of repositories."""

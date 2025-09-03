@@ -1,7 +1,8 @@
 """Elysia Control - Service management utility for Elysia AI and Weaviate."""
 
 try:
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
+
     try:
         __version__ = version("elysiactl")
     except PackageNotFoundError:
@@ -11,11 +12,13 @@ try:
 except ImportError:
     # Python < 3.8, read from pyproject.toml as fallback
     try:
-        import toml
         from pathlib import Path
+
+        import toml
+
         pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
         if pyproject_path.exists():
-            with open(pyproject_path, "r") as f:
+            with open(pyproject_path) as f:
                 data = toml.load(f)
                 __version__ = data.get("project", {}).get("version", "0.0.0+unknown")
         else:
