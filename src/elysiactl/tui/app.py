@@ -371,21 +371,45 @@ class RepoManagerApp(App):
 
         elif action == "filter_repositories":
             filter_criteria = result.get("filter", {})
-            if filter_criteria.get("status") == "failed":
-                if self.virtual_scroller:
-                    from ..services.repository import repo_service
-                    
+            status_filter = filter_criteria.get("status")
+            
+            if self.virtual_scroller:
+                from ..services.repository import repo_service
+                
+                if status_filter == "failed":
                     # Get repositories filtered by status
                     failed_repos = repo_service.get_repositories_by_status("failed")
                     
                     if failed_repos:
                         self.virtual_scroller.add_repository_table(failed_repos)
                         self.virtual_scroller.add_ai_response(
-                            f"Found {len(failed_repos)} failed repository(ies). Click to troubleshoot or retry."
+                            f"Found {len(failed_repos)} failed repositories"
+                        )
+                    else:
+                        # Also check for unknown status repos (not cloned)
+                        unknown_repos = repo_service.get_repositories_by_status("unknown")
+                        if unknown_repos:
+                            self.virtual_scroller.add_repository_table(unknown_repos)
+                            self.virtual_scroller.add_ai_response(
+                                f"Found {len(unknown_repos)} uncloned repositories"
+                            )
+                        else:
+                            self.virtual_scroller.add_ai_response(
+                                "No failed or uncloned repositories found"
+                            )
+                            
+                elif status_filter == "success":
+                    # Get successful repositories
+                    success_repos = repo_service.get_repositories_by_status("success")
+                    
+                    if success_repos:
+                        self.virtual_scroller.add_repository_table(success_repos)
+                        self.virtual_scroller.add_ai_response(
+                            f"Found {len(success_repos)} successful repositories"
                         )
                     else:
                         self.virtual_scroller.add_ai_response(
-                            "No failed repositories found. All repositories are healthy!"
+                            "No successful repositories found"
                         )
 
     def show_help_content(self, result: dict[str, Any]) -> None:
