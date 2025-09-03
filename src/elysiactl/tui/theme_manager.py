@@ -146,7 +146,6 @@ class ThemeManager:
             warning="#f59e0b",  # Professional warning
             error="#ef4444",  # Clean error red
             panel="#334155",  # Subtle border gray
-            text_muted="#64748b",  # Muted blue-gray
         )
 
     def _create_minimal_theme(self) -> Theme:
@@ -163,7 +162,6 @@ class ThemeManager:
             warning="#ffff00",  # Yellow
             error="#ff0000",  # Red
             panel="#333333",  # Dark gray
-            text_muted="#555555",  # Dark gray for minimal theme
         )
 
     def _create_dark_theme(self) -> Theme:
@@ -180,7 +178,6 @@ class ThemeManager:
             warning="#fbbf24",  # Yellow
             error="#f87171",  # Light red
             panel="#3e3e42",  # Dark panel
-            text_muted="#858585",  # Medium gray for dark theme
         )
 
     def _create_monokai_theme(self) -> Theme:
@@ -197,7 +194,6 @@ class ThemeManager:
             warning="#fd971f",  # Orange
             error="#f92672",  # Red
             panel="#49483e",  # Monokai panel
-            text_muted="#75715e",  # Monokai comment color
         )
 
     def _create_github_theme(self) -> Theme:
@@ -214,7 +210,6 @@ class ThemeManager:
             warning="#ffd33d",  # Yellow
             error="#d73a49",  # Red
             panel="#e1e4e8",  # GitHub border gray
-            text_muted="#586069",  # GitHub secondary text
         )
 
     def _create_dracula_theme(self) -> Theme:
@@ -231,7 +226,6 @@ class ThemeManager:
             warning="#ffb86c",  # Orange
             error="#ff5555",  # Red
             panel="#6272a4",  # Dracula panel
-            text_muted="#6272a4",  # Dracula comment color
         )
 
     def _create_solarized_theme(self) -> Theme:
@@ -248,7 +242,6 @@ class ThemeManager:
             warning="#b58900",  # Yellow
             error="#dc322f",  # Red
             panel="#93a1a1",  # Solarized base1
-            text_muted="#93a1a1",  # Solarized base1 for muted text
         )
 
     def _create_nord_theme(self) -> Theme:
@@ -265,7 +258,6 @@ class ThemeManager:
             warning="#ebcb8b",  # Yellow
             error="#bf616a",  # Red
             panel="#4c566a",  # Nord polar night 2
-            text_muted="#4c566a",  # Nord polar night 2
         )
 
     def get_available_themes(self) -> dict[str, Theme]:

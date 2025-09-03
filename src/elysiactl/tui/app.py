@@ -131,6 +131,35 @@ class RepoManagerApp(App):
             color: $text-muted;
             background: transparent;
         }
+
+        /* Enhanced startup animation styles */
+        #virtual_scroller {
+            /* Basic styling for smooth appearance */
+            background: $surface;
+            color: $foreground;
+        }
+
+        /* Startup line styling for better visual appeal */
+        .startup-line {
+            text-style: bold;
+            text-align: center;
+        }
+
+        .startup-line.highlight {
+            color: $accent;
+        }
+
+        /* Intro line styling */
+        .intro-line {
+            text-align: center;
+            color: $text-muted;
+            text-style: italic;
+        }
+
+        .intro-line.ready {
+            color: $success;
+            text-style: bold;
+        }
         """
 
     def compose(self) -> ComposeResult:

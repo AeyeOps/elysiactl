@@ -73,9 +73,9 @@ def tui(
     console.print(f"🚀 Launching Repository Management TUI with {theme} theme...")
 
     # Validate theme
-    from .tui.theme import theme_manager
+    from .tui.theme_manager import ThemeManager
 
-    available_themes = theme_manager.get_available_themes()
+    available_themes = ThemeManager().get_available_themes()
     if theme not in available_themes:
         console.print(
             f"❌ Invalid theme '{theme}'. Available themes: {', '.join(available_themes)}"

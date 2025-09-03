@@ -40,8 +40,14 @@ class CommandPrompt(TextArea):
     async def on_key(self, event) -> None:
         """Handle key events for command history navigation."""
         
-        # Handle typing (any printable character)
-        if event.key and len(event.key) == 1 and not event.is_navigation:
+        # Handle typing (any printable character that would add to text)
+        # Check if it's a single character (printable) and not a special key combo
+        if (len(event.key) == 1 and 
+            event.key not in ["\t", "\n", "\r"] and 
+            not event.key.startswith("ctrl+") and
+            not event.key.startswith("alt+") and
+            not event.key.startswith("shift+") and
+            not event.key.startswith("meta+")):
             if self.showing_placeholder:
                 self._hide_placeholder()
         

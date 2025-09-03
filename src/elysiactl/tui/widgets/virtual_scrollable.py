@@ -73,8 +73,9 @@ class ConversationItem:
             # Intro lines have minimal formatting
             return f"│ {self.content}"
 
-        else:
-            return str(self.content)
+        elif self.item_type == "spacer":
+            # Return a blank line that will be visible
+            return " "
 class ConversationView(ScrollableContainer):
     """A scrollable conversation view using Textual's native scrolling."""
 
@@ -90,46 +91,67 @@ class ConversationView(ScrollableContainer):
         yield self.content_container
 
     def start_startup_animation(self) -> None:
-        """Start the animated startup sequence feeding lines from bottom up."""
+        """Start the animated startup sequence filling from bottom upward."""
         # Clear any existing content
         self.items = []
 
-        # Don't update display immediately - let animation control it
-        # self._update_display()  # <-- This was causing the clear!
+        # Pre-fill with empty lines to create scrollable content
+        # This ensures the container can scroll and new lines appear at bottom
+        empty_lines = 80  # Fixed number of lines for consistent animation
+        for _ in range(empty_lines):
+            self.items.append(ConversationItem("spacer", ""))
 
-        # Startup graphic lines - will be fed one by one
+        # Startup graphic lines
         self.startup_lines = [
             "┌─────────────────────────────────────────────────────────────────┐",
             "│                                                                 │",
             "│                    Welcome to elysiactl                         │",
             "│                                                                 │",
+            "│                                                                 │",
             "│                Control Center for Elysia AI                     │",
             "│                                                                 │",
-            "│  ┌─ Commands ──────────────────────────────────────────────┐   │",
-            "│  │  • start    - Launch Elysia and Weaviate services       │   │",
-            "│  │  • stop     - Gracefully stop all services               │   │",
-            "│  │  • status   - Show service health and status             │   │",
-            "│  │  • health   - Detailed health checks                      │   │",
-            "│  │  • restart  - Stop and restart services                  │   │",
-            "│  └─────────────────────────────────────────────────────────┘   │",
+            "│                                                                 │",
+            "│                                                                 │",
+            "│  ┌─ Commands ──────────────────────────────────────────────┐    │",
+            "│  │  • start    - Launch Elysia and Weaviate services       │    │",
+            "│  │  • stop     - Gracefully stop all services              │    │",
+            "│  │  • status   - Show service health and status            │    │",
+            "│  │  • health   - Detailed health checks                    │    │",
+            "│  │  • restart  - Stop and restart services                 │    │",
+            "│  └─────────────────────────────────────────────────────────┘    │",
+            "│                                                                 │",
+            "│                                                                 │",
             "│                                                                 │",
             "│                Type 'help' for all commands                     │",
             "│                                                                 │",
             "└─────────────────────────────────────────────────────────────────┘",
         ]
 
-        # Additional intro lines to add after graphic
+        # Additional intro lines
         self.intro_lines = [
             "",
-            "💡 Tip: Use arrow keys to scroll through history",
-            "🔄 Auto-scroll is enabled - content will follow new messages",
             "",
-            "Ready to manage your Elysia AI services! 🚀",
+            "Tip: Use arrow keys to scroll through history",
+            "",
+            "",
+            "Auto-scroll is enabled - content will follow new messages",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "Ready to manage your Elysia AI services!",
+            "",
+            ""
         ]
 
-        # Start the animation immediately
+        # Start the animation
         self.startup_index = 0
-        self._animate_next_line()
+        # Initial setup with spacers to establish scroll position
+        self._update_display()
+        self.scroll_to_bottom()  # Position at bottom before animation
+        self.set_timer(0.1, self._animate_next_line)  # Faster initial delay
 
     def _animate_next_line(self) -> None:
         """Animate the next line in the startup sequence."""
@@ -147,18 +169,22 @@ class ConversationView(ScrollableContainer):
             self.startup_index += 1
 
             # Schedule next line after a delay
-            self.set_timer(0.15, self._animate_next_line)  # 150ms delay between lines
+            self.set_timer(0.025, self._animate_next_line)  # Faster delay between lines
 
         elif hasattr(self, 'intro_lines') and self.intro_lines:
             # Startup graphic complete, add intro lines
             self._add_intro_lines()
 
+    def scroll_to_bottom_smooth(self) -> None:
+        """Enhanced scroll to bottom with animation."""
+        self.scroll_end(animate=True)
+
     def _add_intro_lines(self) -> None:
         """Add the final intro lines after startup graphic."""
         for line in self.intro_lines:
-            if line.strip():  # Skip empty lines for now
-                temp_item = ConversationItem("intro_line", line)
-                self.items.append(temp_item)
+            # Include empty lines as actual blank lines in the display
+            temp_item = ConversationItem("intro_line", line)
+            self.items.append(temp_item)
 
         # Clear the temporary attributes
         if hasattr(self, 'startup_lines'):
@@ -170,21 +196,6 @@ class ConversationView(ScrollableContainer):
 
         self._update_display()
         self.scroll_to_bottom()
-
-        # Ensure command prompt gets focus after animation completes
-        def focus_prompt():
-            try:
-                from textual.app import App
-                app = self.app
-                if app:
-                    command_prompt = app.query_one("#command_prompt", required=False)
-                    if command_prompt:
-                        command_prompt.focus()
-            except Exception:
-                pass  # Ignore if focus fails
-        
-        # Small delay to ensure UI is stable
-        self.set_timer(0.2, focus_prompt)
 
     def _show_welcome_message(self) -> None:
         """Legacy method - now handled by startup animation."""
@@ -201,6 +212,14 @@ class ConversationView(ScrollableContainer):
     def add_assistant_response(self, response: str) -> None:
         """Add an assistant response to the conversation."""
         item = ConversationItem("ai_response", response)
+        self.items.append(item)
+        self._update_display()
+        if self.auto_scroll:
+            self.scroll_to_bottom()
+
+    def add_blank_line(self) -> None:
+        """Add a visible blank line to the conversation."""
+        item = ConversationItem("spacer", " ")
         self.items.append(item)
         self._update_display()
         if self.auto_scroll:
@@ -240,7 +259,7 @@ class ConversationView(ScrollableContainer):
             rendered_items = []
             for item in self.items:
                 rendered_items.append(item.render())
-            content = "\n\n".join(rendered_items)
+            content = "\n".join(rendered_items)
 
         self.content_container.update(content)
 
