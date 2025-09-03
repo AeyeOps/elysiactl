@@ -263,8 +263,8 @@ class RepoManagerApp(App):
             repos = repo_service.discover_repositories("*/*/*")
             
             if repos:
-                # Update status for loaded repositories
-                for repo in repos[:50]:  # Limit to 50 for performance
+                # Update status for loaded repositories (no artificial limit)
+                for repo in repos:
                     try:
                         repo.sync_status = repo_service.get_repository_status(repo)
                     except Exception:
