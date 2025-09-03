@@ -21,6 +21,10 @@ class CommandProcessor:
             r"show.*fail": self.show_failed_repositories,
             r"find.*fail": self.show_failed_repositories,
             r"list.*fail": self.show_failed_repositories,
+            # Load/discovery commands
+            r"load.*repo": self.load_repositories,
+            r"discover.*repo": self.load_repositories,
+            r"scan.*repo": self.load_repositories,
             # Help commands
             r"help": self.show_help,
             r"\?": self.show_help,
@@ -81,13 +85,12 @@ class CommandProcessor:
             "command": command,
         }
 
-    def show_failed_repositories(self, command: str) -> dict[str, Any]:
-        """Show only failed repositories."""
+    def load_repositories(self, command: str) -> dict[str, Any]:
+        """Load/discover repositories."""
         return {
             "type": "action",
-            "action": "filter_repositories",
-            "filter": {"status": "failed"},
-            "message": "Showing failed repositories",
+            "action": "load_repositories",
+            "message": "Loading repositories from mgit discovery",
             "command": command,
         }
 
@@ -96,6 +99,7 @@ class CommandProcessor:
         help_text = """
 Available commands:
 • "show repos" or "list repos" - Display all repositories
+• "load repos" or "discover repos" - Load repositories from mgit
 • "show status" - Show repository status summary
 • "show failed repos" - Show only failed repositories
 • "help" or "?" - Show this help message
@@ -105,6 +109,7 @@ You can also use natural language like:
 • "show me the failed ones"
 • "display repo status"
 • "find failing repositories"
+• "scan for new repos"
         """.strip()
 
         return {
