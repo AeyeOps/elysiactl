@@ -16,6 +16,15 @@ import os
 from typing import Optional, List
 from dataclasses import dataclass, field
 
+# Load environment variables from .env file with override=True
+try:
+    from dotenv import load_dotenv
+    # Load .env file and override existing environment variables
+    load_dotenv(override=True)
+except ImportError:
+    # python-dotenv not installed, continue with os.getenv
+    pass
+
 
 def _require_env(var_name: str, fallback_var: Optional[str] = None) -> str:
     """Require an environment variable or raise an error."""

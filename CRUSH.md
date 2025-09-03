@@ -110,6 +110,33 @@ docs/specs/
 
 ### 🎯 Development Guidelines (Continued)
 
+## Knowledge Management Workflow
+
+#### 🚀 Smart Learning Strategy
+**When encountering new third-party tools/libraries:**
+1. **Don't trial-and-error manually** - It's inefficient and error-prone
+2. **Immediately use Context7 or Perplexity** to get comprehensive, up-to-date information
+3. **Store findings in Qdrant MCP** for future semantic search retrieval
+4. **Update CRUSH.md** with key learnings and reminders
+
+#### 📚 Qdrant MCP Collections
+- **`qdrant_storage_guide`** - Complete Qdrant storage operations and best practices
+- **`textual_rich_typer_context`** - Deep architectural insights and integration patterns
+- **`latest_library_features`** - Latest features with practical code examples
+
+#### 💡 Usage Reminder
+When you learn something new about third-party tools, modern libraries, or advanced techniques:
+- Use `mcp_qdrant-docs_qdrant-store` to save with rich metadata
+- Include searchable tags like library names, topics, and use cases
+- Enable semantic search for future "how do I..." questions
+
+#### 🔍 Search Strategy
+Use `mcp_qdrant-docs_qdrant-find` for:
+- *"How do I store vectors in Qdrant?"*
+- *"Textual reactive widget patterns"*
+- *"Rich performance optimization"*
+- *"Typer command group best practices"*
+
 ## Code Style Guidelines
 
 ### Imports

@@ -30,6 +30,10 @@ elysiactl simplifies the orchestration of complex AI infrastructure by providing
 - Docker and Docker Compose
 - Conda environment (for Elysia AI service)
 
+### System Pre-requisites (Debian/Ubuntu)
+For full functionality, including MIME type detection, install the following system library:
+`sudo apt-get install libmagic1`
+
 ## Installation
 
 ### Using UV (Recommended)

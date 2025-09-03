@@ -13,6 +13,7 @@ from .commands.health import health_command
 from .commands.repair import app as repair_app
 from .commands.index import app as index_app
 from .commands.collection import app as collection_app
+from .commands.repo import app as repo_app
 
 console = Console()
 
@@ -43,6 +44,7 @@ app.add_typer(repair_app, name="repair", help="Repair cluster issues")
 app.add_typer(index_app, name="index", help="Index source code into Weaviate")
 app.add_typer(collection_app, name="collection", help="Manage Weaviate collections")
 app.add_typer(collection_app, name="col", help="Manage Weaviate collections (alias)")
+app.add_typer(repo_app, name="repo", help="Manage repository connections and monitoring")
 
 
 @app.command()

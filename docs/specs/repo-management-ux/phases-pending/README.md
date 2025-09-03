@@ -1,4 +1,4 @@
-# Repository Management UX - MGit + Elysiactl Integration
+# Repository Management UX - mgit + elysiactl Integration
 
 ## Overview
 This directory contains the design and planning for a user-friendly repository management system that orchestrates the integration between mgit (multi-repository indexing) and elysiactl (Weaviate collection management).
