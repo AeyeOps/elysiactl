@@ -94,6 +94,16 @@ class CommandProcessor:
             "command": command,
         }
 
+    def show_failed_repositories(self, command: str) -> dict[str, Any]:
+        """Show only failed repositories."""
+        return {
+            "type": "action",
+            "action": "filter_repositories",
+            "filter": {"status": "failed"},
+            "message": "Showing failed repositories",
+            "command": command,
+        }
+
     def show_help(self, command: str = "") -> dict[str, Any]:
         """Show available commands."""
         help_text = """

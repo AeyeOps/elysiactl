@@ -243,7 +243,7 @@ class RepoManagerApp(App):
             if real_repos:
                 self.virtual_scroller.add_repository_table(real_repos)
                 self.virtual_scroller.add_ai_response(
-                    f"Loaded {len(real_repos)} repositories from mgit discovery! Use commands like 'show failed repos' or 'list repos' to interact with them."
+                    f"Loaded {len(real_repos)} repositories from mgit discovery"
                 )
             else:
                 # No fallback - inform user that no repositories were found
@@ -259,20 +259,21 @@ class RepoManagerApp(App):
         try:
             from ..services.repository import repo_service
             
-            # Try to discover repositories using mgit
-            # This will look for repositories in the current directory and subdirectories
-            repos = repo_service.discover_repositories("*", provider="github")
+            # Discover repositories using mgit with a broad pattern
+            repos = repo_service.discover_repositories("*/*/*")
             
             if repos:
                 # Update status for loaded repositories
-                for repo in repos:
-                    repo.sync_status = repo_service.get_repository_status(repo)
+                for repo in repos[:50]:  # Limit to 50 for performance
+                    try:
+                        repo.sync_status = repo_service.get_repository_status(repo)
+                    except Exception:
+                        repo.sync_status = "unknown"
                 
                 return repos
             
         except Exception as e:
-            # If mgit is not available or fails, return empty list
-            print(f"Could not load real repositories: {e}")
+            print(f"mgit discovery error: {e}")
             
         return []
 
@@ -330,43 +331,42 @@ class RepoManagerApp(App):
                 
                 # Get real status counts
                 all_repos = list(repo_service.repositories.values())
-                if not all_repos:
-                    # Try to discover if no repos loaded
-                    all_repos = repo_service.discover_repositories("*")
                 
                 if all_repos:
                     success_count = sum(1 for repo in all_repos if repo.sync_status == "success")
                     failed_count = sum(1 for repo in all_repos if repo.sync_status == "failed")
                     syncing_count = sum(1 for repo in all_repos if repo.sync_status == "syncing")
+                    unknown_count = len(all_repos) - success_count - failed_count - syncing_count
                     
-                    status_msg = f"📊 Repository Status Summary\n"
-                    status_msg += f"✅ Success: {success_count} repositories\n"
-                    status_msg += f"❌ Failed: {failed_count} repositories\n"
-                    status_msg += f"🔄 Syncing: {syncing_count} repositories\n\n"
-                    
-                    if failed_count == 0:
-                        status_msg += "All systems operational! 🎉"
-                    else:
-                        status_msg += f"{failed_count} repositories need attention."
+                    status_msg = f"Repository Status Summary\n"
+                    status_msg += f"Success: {success_count}\n"
+                    status_msg += f"Failed: {failed_count}\n"
+                    status_msg += f"Syncing: {syncing_count}\n"
+                    status_msg += f"Unknown: {unknown_count}\n"
                     
                     self.virtual_scroller.add_ai_response(status_msg)
                 else:
                     self.virtual_scroller.add_ai_response(
-                        "No repositories loaded. Use 'load repos' to discover repositories."
+                        "No repositories loaded. Use 'load repos' first."
                     )
 
         elif action == "load_repositories":
             # Load repositories from mgit discovery
             if self.virtual_scroller:
-                real_repos = self.load_real_repositories()
-                if real_repos:
-                    self.virtual_scroller.add_repository_table(real_repos)
+                try:
+                    real_repos = self.load_real_repositories()
+                    if real_repos:
+                        self.virtual_scroller.add_repository_table(real_repos)
+                        self.virtual_scroller.add_ai_response(
+                            f"Loaded {len(real_repos)} repositories from mgit discovery"
+                        )
+                    else:
+                        self.virtual_scroller.add_ai_response(
+                            "mgit found no repositories matching the search pattern"
+                        )
+                except Exception as e:
                     self.virtual_scroller.add_ai_response(
-                        f"Successfully loaded {len(real_repos)} repositories from mgit discovery!"
-                    )
-                else:
-                    self.virtual_scroller.add_ai_response(
-                        "Could not load repositories. Make sure mgit is installed and configured."
+                        f"mgit discovery failed: {str(e)}"
                     )
 
         elif action == "filter_repositories":
