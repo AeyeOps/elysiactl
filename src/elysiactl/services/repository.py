@@ -103,9 +103,27 @@ class RepositoryService:
 
     def get_repository_status(self, repo: Repository) -> str:
         """Get the sync status for a repository."""
-        # TODO: Implement actual status checking
-        # For now, return mock status
-        return "success"
+        # Check if repository exists locally
+        import os
+        from pathlib import Path
+        
+        # Try to find local repository path
+        # This is a simple check - in production this would be more sophisticated
+        local_path = self._find_local_repo_path(repo)
+        
+        if local_path and local_path.exists():
+            # Repository exists locally, check if it's up to date
+            try:
+                # Simple check: see if .git directory exists
+                git_dir = local_path / ".git"
+                if git_dir.exists():
+                    return "success"  # Repository is cloned and has git
+                else:
+                    return "unknown"  # Directory exists but not a git repo
+            except Exception:
+                return "unknown"
+        else:
+            return "unknown"  # Repository not found locally
 
     def update_repository_status(self, repo_name: str, status: str):
         """Update the sync status for a repository."""
@@ -187,6 +205,36 @@ class RepositoryService:
 
         except Exception as e:
             print(f"Error loading repository config: {e}")
+
+
+    def _find_local_repo_path(self, repo: Repository) -> Path | None:
+        """Find the local path for a repository if it exists."""
+        from pathlib import Path
+        
+        # Common locations to check for repositories
+        search_paths = [
+            Path.home() / "repos" / repo.repository,
+            Path.home() / "git" / repo.repository, 
+            Path.home() / "projects" / repo.repository,
+            Path.home() / "workspace" / repo.repository,
+            Path.cwd() / repo.repository,  # Current directory
+            Path.cwd() / "repos" / repo.repository,  # repos subdirectory
+        ]
+        
+        # Also check for org/project/repo structure
+        search_paths.extend([
+            Path.home() / "repos" / repo.organization / repo.project / repo.repository,
+            Path.home() / "git" / repo.organization / repo.project / repo.repository,
+            Path.home() / "projects" / repo.organization / repo.project / repo.repository,
+            Path.cwd() / repo.organization / repo.project / repo.repository,
+        ])
+        
+        # Check each potential path
+        for path in search_paths:
+            if path.exists() and path.is_dir():
+                return path
+                
+        return None
 
 
 # Global service instance
