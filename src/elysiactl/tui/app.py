@@ -11,6 +11,7 @@ from .command_processor import CommandProcessor
 from .theme_editor import ThemeEditor
 from .theme_manager import ThemeManager
 from .widgets.command_prompt import CommandPrompt
+from .widgets.custom_footer import CustomFooter
 from .widgets.virtual_scrollable import (
     TableActionSelected,
     TableRowSelected,
@@ -46,19 +47,41 @@ class RepoManagerApp(App):
             padding: 0 2;
         }
 
-        CommandPrompt {
+        CustomFooter {
             height: 4;
             width: 1fr;
+            background: $primary;
+            color: $foreground;
+            padding: 0 2;
+        }
+
+        .footer_binding {
+            color: $text-muted;
+            text-align: left;
+        }
+
+        CommandPrompt {
+            height: auto;  /* Dynamic height 1-5 rows */
+            width: 1fr;
             padding: 1;
-            background: $surface;
+            background: $surface;  /* Match scroll view background */
             color: $foreground;
             border: none;
+            min-height: 1;  /* Start at 1 row */
+            max-height: 5;  /* Grow up to 5 rows maximum */
+        }
+
+        /* Placeholder text styling */
+        CommandPrompt.placeholder {
+            color: $panel;  /* Use panel theme color for subtle placeholders */
         }
 
         #bottom_section {
             dock: bottom;
-            height: 8;
+            height: auto;  /* Adjust based on CommandPrompt height + 4 for footer */
             width: 100%;
+            min-height: 5;  /* 1 + 4 */
+            max-height: 9;  /* 5 + 4 */
         }
 
         #main-container {
@@ -132,7 +155,7 @@ class RepoManagerApp(App):
         with Vertical(id="bottom_section"):
             self.command_prompt = CommandPrompt()
             yield self.command_prompt
-            yield Footer()
+            yield CustomFooter()
 
     BINDINGS: ClassVar = [
         ("q", "quit", "Quit"),
@@ -195,6 +218,7 @@ class RepoManagerApp(App):
     async def on_command_prompt_command_submitted(self, event) -> None:
         """Handle command submission from the prompt."""
         command = event.command
+        print(f"DEBUG: Received command: '{command}'")  # Debug output
 
         # Display the command in the virtual scroller
         if self.virtual_scroller:
@@ -202,6 +226,7 @@ class RepoManagerApp(App):
 
         # Process the command using our command processor
         result = self.command_processor.process_command(command)
+        print(f"DEBUG: Command processor result: {result}")  # Debug output
 
         if result["type"] == "action":
             await self.handle_action(result)
@@ -283,7 +308,8 @@ class RepoManagerApp(App):
                             "develop",
                             True,
                             "Auth service",
-                            "failed",
+                            None,  # last_sync
+                            "failed",  # sync_status
                         )
                     ]
                     self.virtual_scroller.add_repository_table(failed_repos)

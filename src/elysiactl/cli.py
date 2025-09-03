@@ -52,7 +52,49 @@ app.add_typer(repair_app, name="repair", help="Repair cluster issues")
 app.add_typer(index_app, name="index", help="Index source code into Weaviate")
 app.add_typer(collection_app, name="collection", help="Manage Weaviate collections")
 app.add_typer(collection_app, name="col", help="Manage Weaviate collections (alias)")
-app.add_typer(repo_app, name="repo", help="Manage repository connections and monitoring")
+@app.command()
+def tui(
+    theme: Annotated[
+        str, typer.Option("--theme", "-t", help="UI theme (default, light, minimal, professional)")
+    ] = "default",
+    dev: Annotated[bool, typer.Option("--dev", help="Enable Textual developer console")] = False,
+):
+    """Launch the interactive repository management TUI."""
+    import os
+    import warnings
+
+    # Suppress the specific libmagic warning
+    warnings.filterwarnings("ignore", message="libmagic not available")
+
+    if dev:
+        console.print("DEV MODE: Enabling Textual Console...")
+        os.environ["TEXTUAL"] = "dev"
+
+    console.print(f"🚀 Launching Repository Management TUI with {theme} theme...")
+
+    # Validate theme
+    from .tui.theme import theme_manager
+
+    available_themes = theme_manager.get_available_themes()
+    if theme not in available_themes:
+        console.print(
+            f"❌ Invalid theme '{theme}'. Available themes: {', '.join(available_themes)}"
+        )
+        raise typer.Exit(1)
+
+    try:
+        from .tui.app import RepoManagerApp
+
+        app = RepoManagerApp(theme_name=theme)
+        console.print("✅ TUI starting...")
+        app.run()
+    except ImportError as e:
+        console.print(f"❌ TUI dependencies not available: {e}")
+        console.print("💡 Install with: pip install textual textual-dev")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"❌ Error launching TUI: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
