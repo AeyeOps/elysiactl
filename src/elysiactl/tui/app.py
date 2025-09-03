@@ -237,18 +237,19 @@ class RepoManagerApp(App):
         else:
             self.theme = "default"  # Fallback
 
-        # Load real repository data instead of mock data
+        # Load real repository data
         if self.virtual_scroller:
-            # Try to load real repositories from mgit
             real_repos = self.load_real_repositories()
             if real_repos:
                 self.virtual_scroller.add_repository_table(real_repos)
                 self.virtual_scroller.add_ai_response(
-                    f"Loaded {len(real_repos)} repositories from mgit discovery! You can interact with them using commands like 'show failed repos' or 'list repos'."
+                    f"Loaded {len(real_repos)} repositories from mgit discovery! Use commands like 'show failed repos' or 'list repos' to interact with them."
                 )
             else:
-                # Fall back to mock data if no real repos found
-                self.show_mock_repositories()
+                # No fallback - inform user that no repositories were found
+                self.virtual_scroller.add_ai_response(
+                    "No repositories found. Make sure mgit is installed and configured. Try running 'mgit list *' to verify your setup."
+                )
 
         # Focus the command prompt after a short delay to ensure it's ready
         self.set_timer(0.1, lambda: self.command_prompt.focus() if self.command_prompt else None)
@@ -274,53 +275,6 @@ class RepoManagerApp(App):
             print(f"Could not load real repositories: {e}")
             
         return []
-
-    def show_mock_repositories(self) -> None:
-        """Show mock repositories when real ones aren't available."""
-        mock_repos = [
-            Repository(
-                organization="pdidev",
-                project="Blue Cow",
-                repository="api-gateway",
-                clone_url="",
-                ssh_url="",
-                default_branch="main",
-                is_private=True,
-                description="API Gateway",
-                last_sync=None,
-                sync_status="success",
-            ),
-            Repository(
-                organization="pdidev",
-                project="Blue Cow",
-                repository="user-service",
-                clone_url="",
-                ssh_url="",
-                default_branch="develop",
-                is_private=True,
-                description="User service",
-                last_sync=None,
-                sync_status="success",
-            ),
-            Repository(
-                organization="pdidev",
-                project="Blue Cow",
-                repository="auth-service",
-                clone_url="",
-                ssh_url="",
-                default_branch="develop",
-                is_private=True,
-                description="Auth service",
-                last_sync=None,
-                sync_status="failed",
-            ),
-        ]
-        
-        if self.virtual_scroller:
-            self.virtual_scroller.add_repository_table(mock_repos)
-            self.virtual_scroller.add_ai_response(
-                "Loaded mock repositories (mgit not available). You can still interact with them using commands like 'show failed repos' or 'list repos'."
-            )
 
     async def on_command_prompt_command_submitted(self, event) -> None:
         """Handle command submission from the prompt."""
@@ -353,27 +307,53 @@ class RepoManagerApp(App):
             if self.virtual_scroller:
                 from ..services.repository import repo_service
                 
-                # Try to get real repositories, fall back to mock
+                # Get real repositories
                 repos = list(repo_service.repositories.values())
                 if not repos:
-                    # No repositories loaded yet, try to discover
+                    # No repositories loaded, try to discover
                     repos = repo_service.discover_repositories("*")
                 
                 if repos:
                     self.virtual_scroller.add_repository_table(repos)
                     self.virtual_scroller.add_ai_response(
-                        f"Here are your {len(repos)} repositories! You can click on any row to interact with them."
+                        f"Here are your {len(repos)} repositories. Click any row to interact with them."
                     )
                 else:
-                    # Fall back to mock data
-                    self.show_mock_repositories()
+                    self.virtual_scroller.add_ai_response(
+                        "No repositories found. Use 'load repos' to discover repositories or check your mgit configuration."
+                    )
 
         elif action == "show_status":
-            # Show status summary
+            # Show status summary using real data
             if self.virtual_scroller:
-                self.virtual_scroller.add_ai_response(
-                    "📊 Repository Status Summary\n✅ Success: 2 repositories\n❌ Failed: 1 repository\n🔄 Syncing: 0 repositories\n\nAll systems operational!"
-                )
+                from ..services.repository import repo_service
+                
+                # Get real status counts
+                all_repos = list(repo_service.repositories.values())
+                if not all_repos:
+                    # Try to discover if no repos loaded
+                    all_repos = repo_service.discover_repositories("*")
+                
+                if all_repos:
+                    success_count = sum(1 for repo in all_repos if repo.sync_status == "success")
+                    failed_count = sum(1 for repo in all_repos if repo.sync_status == "failed")
+                    syncing_count = sum(1 for repo in all_repos if repo.sync_status == "syncing")
+                    
+                    status_msg = f"📊 Repository Status Summary\n"
+                    status_msg += f"✅ Success: {success_count} repositories\n"
+                    status_msg += f"❌ Failed: {failed_count} repositories\n"
+                    status_msg += f"🔄 Syncing: {syncing_count} repositories\n\n"
+                    
+                    if failed_count == 0:
+                        status_msg += "All systems operational! 🎉"
+                    else:
+                        status_msg += f"{failed_count} repositories need attention."
+                    
+                    self.virtual_scroller.add_ai_response(status_msg)
+                else:
+                    self.virtual_scroller.add_ai_response(
+                        "No repositories loaded. Use 'load repos' to discover repositories."
+                    )
 
         elif action == "load_repositories":
             # Load repositories from mgit discovery
@@ -388,6 +368,25 @@ class RepoManagerApp(App):
                     self.virtual_scroller.add_ai_response(
                         "Could not load repositories. Make sure mgit is installed and configured."
                     )
+
+        elif action == "filter_repositories":
+            filter_criteria = result.get("filter", {})
+            if filter_criteria.get("status") == "failed":
+                if self.virtual_scroller:
+                    from ..services.repository import repo_service
+                    
+                    # Get repositories filtered by status
+                    failed_repos = repo_service.get_repositories_by_status("failed")
+                    
+                    if failed_repos:
+                        self.virtual_scroller.add_repository_table(failed_repos)
+                        self.virtual_scroller.add_ai_response(
+                            f"Found {len(failed_repos)} failed repository(ies). Click to troubleshoot or retry."
+                        )
+                    else:
+                        self.virtual_scroller.add_ai_response(
+                            "No failed repositories found. All repositories are healthy!"
+                        )
 
     def show_help_content(self, result: dict[str, Any]) -> None:
         """Show help content."""
